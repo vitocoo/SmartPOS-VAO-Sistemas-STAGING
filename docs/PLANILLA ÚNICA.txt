@@ -1,0 +1,72 @@
+
+## PLANILLA ÚNICA
+
+Nombre: `SmartPOS_VAO_Sistemas_Planilla`
+
+### Hojas globales
+- `VENDEDORES` — 1 fila por cliente (Prefijo, Nombre, Teléfono, Correo, Categoría, Fecha Alta, Activo, Comisión%, Alias Pago, Link MP, Notas)
+- `CLIENTES_VAO` — datos comerciales
+- `GUIA_SCRIPT_PROPERTIES` — documentación
+
+### Hojas por cliente (prefijo XX)
+- `INVENTARIO_XX` — productos
+- `VENTAS_XX` — ventas
+- `CONFIG_XX` — configuración del cliente
+- `CONF_DIARIA_XX` — horarios y config diaria (módulo Horarios)
+
+### Planilla admin separada
+- `VAO Admin — Uso Exclusivo` (hojas: CLIENTES_VAO, GUIA_SCRIPT_PROPERTIES)
+
+## PREFIJOS
+
+- 1 cliente = 1 prefijo de 2-3 letras (XX, LP, MC, NE...)
+- Si dos clientes comparten iniciales → se usa el tercer apellido
+- Ejemplo: Natalia Egui = NE. Si hay otro NE → usa tercer apellido → NE2
+
+## ENDPOINTS DEL GAS
+
+CADA endpoint debe:
+1. Leer el prefijo de `e.parameter.p`
+2. Validar que exista en VENDEDORES
+3. Validar que el cliente esté `Activo = sí`
+4. Validar la sesión (excepto login)
+5. Validar el módulo/pack según la acción
+6. Recién ahí acceder a `INVENTARIO_<p>`, `VENTAS_<p>`, `CONFIG_<p>`
+
+## PÁGINAS
+
+| Archivo | Función |
+|---|---|
+| `index.html` | Pide prefijo → va a pos.html?p=XX. Link a admin.html |
+| `pos.html?p=XX` | POS del cliente (ventas + packs) |
+| `reportes.html?p=XX` | Reportes (Pack 2) |
+| `finanzas.html?p=XX` | Finanzas (Pack 3) |
+| `fiados.html?p=XX` | Fiados (extra) |
+| `lista-compras.html?p=XX` | Lista de compras (extra) |
+| `flyer.html?p=XX` | Generador de flyer (extra) |
+| `ofertas.html?p=XX` | Configurador de ofertas (extra) |
+| `herramientas.html` | Dashboard pesado (extra) |
+| `juegos.html?p=XX` | Raspadita + Tragamonedas (extra) |
+| `config.html?p=XX` | Configuración del cliente |
+| `admin.html` | Panel VAO (uso tuyo) |
+
+**Regla:** modal chico → dentro de pos.html. App grande → archivo aparte.
+
+## STACK
+
+- Frontend: HTML/CSS/JS puro
+- Backend: Google Apps Script (Web App)
+- DB: Google Sheets
+- Deploy: Vercel desde GitHub `vitocoo/SmartPOS-VAO-Sistemas`
+- App: vaopos.vercel.app
+- GAS: https://script.google.com/macros/s/AKfycbz.../exec
+
+## SEGURIDAD
+
+- PIN de cliente: 6 dígitos (solo números) → en `CONFIG_XX`
+- Sesión cliente: 7 días
+- Token admin: en Script Properties (`ADMIN_CLAVE_HASH`)
+- Sesión admin: 8 horas
+- Intentos PIN: máximo 3 → bloqueo 5 min
+
+**NUNCA credenciales en GitHub. NUNCA PINs en HTML.**

@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VAO Admin · SmartPOS</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+    --azul:       #1E88E5;
+    --azul-dark:  #0D47A1;
+    --azul-deep:  #0A2472;
+    --verde:      #43B02A;
+    --naranja:    #FF8C00;
+    --rojo:       #C62828;
+    --gris:       #607080;
+    --fondo:      #F0F4F8;
+    --blanco:     #FFFFFF;
+    --texto:      #111827;
+    --borde:      #DDE3EA;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--fondo);
+    color: var(--texto);
+    min-height: 100vh;
+    overscroll-behavior-y: contain;
+}
+
+/* ── LOGIN ─────────────────────────────────────────────────────── */
+#panelLogin {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(160deg, var(--azul-deep) 0%, var(--azul-dark) 50%, #1a3a7a 100%);
+    padding: 24px;
+}
+
+.login-card {
+    background: white;
+    border-radius: 20px;
+    padding: 40px 36px;
+    width: 100%;
+    max-width: 380px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.3);
+}
+
+.login-logo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 32px;
+    gap: 8px;
+}
+
+.login-logo svg { width: 120px; height: auto; }
+
+.login-logo-titulo {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--azul-dark);
+    letter-spacing: 0.5px;
+}
+
+.login-logo-sub {
+    font-size: 0.75rem;
+    color: var(--gris);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.login-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--gris);
+    margin-bottom: 6px;
+    display: block;
+}
+
+.login-input {
+    width: 100%;
+    padding: 14px 16px;
+    border: 2px solid var(--borde);
+    border-radius: 12px;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+    letter-spacing: 3px;
+    font-weight: 700;
+    color: var(--texto);
+}
+
+.login-input:focus { border-color: var(--azul); }
+
+.login-btn {
+    width: 100%;
+    padding: 15px;
+    background: linear-gradient(135deg, var(--azul-dark), var(--azul));
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 20px;
+    letter-spacing: 0.5px;
+    transition: opacity 0.2s;
+}
+
+.login-btn:active { opacity: 0.85; }
+
+.login-error {
+    background: #FFEBEE;
+    color: var(--rojo);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-top: 14px;
+    display: none;
+    text-align: center;
+}
+
+/* ── ADMIN PANEL ───────────────────────────────────────────────── */
+#panelAdmin { display: none; }
+
+.header {
+    background: linear-gradient(135deg, var(--azul-deep) 0%, var(--azul-dark) 50%, var(--azul) 100%);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+}
+
+.header-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.header-logo svg { width: 52px; height: auto; }
+
+.header-info { line-height: 1.3; }
+
+.header-titulo {
+    font-size: 1rem;
+    font-weight: 800;
+    color: white;
+    letter-spacing: 0.3px;
+}
+
+.header-sub {
+    font-size: 0.68rem;
+    color: rgba(255,255,255,0.7);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.btn-logout {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    border-radius: 10px;
+    padding: 7px 14px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+/* ── CONTENIDO ─────────────────────────────────────────────────── */
+.contenido {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px 16px 40px;
+}
+
+/* Stats rápidas */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 14px;
+    padding: 18px 16px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.stat-numero {
+    font-size: 2rem;
+    font-weight: 900;
+    color: var(--azul-dark);
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: 0.72rem;
+    color: var(--gris);
+    margin-top: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Secciones */
+.seccion {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.seccion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.seccion-titulo {
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--azul-dark);
+}
+
+.btn-primario {
+    background: var(--azul);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 9px 16px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: opacity 0.2s;
+}
+
+.btn-primario:active { opacity: 0.8; }
+
+.btn-verde { background: var(--verde); }
+.btn-rojo  { background: var(--rojo); }
+
+/* Tabla clientes */
+.tabla-clientes { width: 100%; border-collapse: collapse; }
+
+.tabla-clientes th {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--gris);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 8px 12px;
+    border-bottom: 2px solid var(--borde);
+    text-align: left;
+}
+
+.tabla-clientes td {
+    padding: 12px 12px;
+    border-bottom: 1px solid var(--borde);
+    font-size: 0.88rem;
+    vertical-align: middle;
+}
+
+.tabla-clientes tr:last-child td { border-bottom: none; }
+.tabla-clientes tr:hover td { background: #F7F9FC; }
+
+.badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+
+.badge-activo    { background: #E8F5E9; color: #2E7D32; }
+.badge-inactivo  { background: #FFEBEE; color: var(--rojo); }
+.badge-ok        { background: #E3F2FD; color: var(--azul-dark); }
+.badge-pendiente { background: #FFF9C4; color: #827717; }
+
+.prefijo-tag {
+    font-family: monospace;
+    font-weight: 900;
+    font-size: 0.95rem;
+    color: var(--azul-dark);
+    background: #E3F2FD;
+    padding: 3px 8px;
+    border-radius: 6px;
+}
+
+.acciones {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.btn-accion {
+    padding: 5px 10px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    transition: opacity 0.2s;
+}
+
+.btn-accion:active { opacity: 0.7; }
+
+/* Modal alta cliente */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.modal-overlay.visible { display: flex; }
+
+.modal {
+    background: white;
+    border-radius: 20px;
+    padding: 28px 24px;
+    width: 100%;
+    max-width: 480px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.3);
+}
+
+.modal-titulo {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--azul-dark);
+    margin-bottom: 20px;
+}
+
+.form-grupo { margin-bottom: 14px; }
+
+.form-label {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--gris);
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.form-input, .form-select {
+    width: 100%;
+    padding: 11px 14px;
+    border: 2px solid var(--borde);
+    border-radius: 10px;
+    font-size: 0.92rem;
+    outline: none;
+    color: var(--texto);
+    transition: border-color 0.2s;
+    background: white;
+}
+
+.form-input:focus, .form-select:focus { border-color: var(--azul); }
+
+.form-input.error { border-color: var(--rojo); }
+
+.prefijo-check {
+    font-size: 0.78rem;
+    margin-top: 4px;
+    font-weight: 600;
+    min-height: 18px;
+}
+
+.prefijo-ok  { color: var(--verde); }
+.prefijo-err { color: var(--rojo); }
+
+.form-fila { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.modal-footer {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.modal-footer button { flex: 1; padding: 13px; border-radius: 12px; font-size: 0.9rem; font-weight: 700; cursor: pointer; border: none; }
+
+.btn-cancelar { background: var(--fondo); color: var(--gris); }
+
+/* Toast */
+.toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: #1a1a2e;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    z-index: 999;
+    transition: transform 0.3s ease;
+    white-space: nowrap;
+    max-width: 90vw;
+    text-align: center;
+}
+
+.toast.visible { transform: translateX(-50%) translateY(0); }
+.toast.verde   { background: var(--verde); }
+.toast.rojo    { background: var(--rojo); }
+
+/* Loading */
+.spinner {
+    width: 20px; height: 20px;
+    border: 3px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: inline-block;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.cargando-clientes {
+    text-align: center;
+    padding: 40px;
+    color: var(--gris);
+    font-size: 0.9rem;
+}
+
+@media (max-width: 600px) {
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .form-fila  { grid-template-columns: 1fr; }
+    .tabla-clientes th:nth-child(4),
+    .tabla-clientes td:nth-child(4) { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══ PANEL LOGIN ══════════════════════════════════════════════ -->
+<div id="panelLogin">
+    <div class="login-card">
+        <div class="login-logo">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 520" role="img">
+                <defs>
+                    <linearGradient id="lg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#21A8F6"/><stop offset="100%" stop-color="#0B49E8"/></linearGradient>
+                    <linearGradient id="lg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#6BCB17"/><stop offset="100%" stop-color="#24A72E"/></linearGradient>
+                    <linearGradient id="lg3" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFC21A"/><stop offset="100%" stop-color="#FF8C00"/></linearGradient>
+                    <linearGradient id="lg4" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#0B49E8"/><stop offset="28%" stop-color="#16A6EF"/><stop offset="50%" stop-color="#43B02A"/><stop offset="70%" stop-color="#D6CF00"/><stop offset="86%" stop-color="#FFB000"/><stop offset="100%" stop-color="#FF8C00"/></linearGradient>
+                </defs>
+                <path d="M105 65 L305 65 L515 305 L710 65 L900 65 L525 430 L470 430 Z" fill="url(#lg1)"/>
+                <path d="M565 405 L900 90 L1165 385 L1015 385 L900 240 L800 350 L1005 350 L1065 420 L700 420 Z" fill="url(#lg2)"/>
+                <path d="M1228 351 A115 115 0 0 1 1458 351 Z" fill="url(#lg3)"/>
+                <g stroke="#FFB000" stroke-width="15" stroke-linecap="round"><line x1="1343" y1="165" x2="1343" y2="112"/><line x1="1230" y1="214" x2="1190" y2="174"/><line x1="1456" y1="214" x2="1496" y2="174"/></g>
+                <path d="M70 490 C 355 395, 650 355, 980 352 C 1210 350, 1410 370, 1560 410" fill="none" stroke="url(#lg4)" stroke-width="15" stroke-linecap="round"/>
+            </svg>
+            <div class="login-logo-titulo">VAO Sistemas</div>
+            <div class="login-logo-sub">Panel Administrador</div>
+        </div>
+
+        <label class="login-label">Clave de acceso</label>
+        <input type="password" class="login-input" id="inputClave"
+               placeholder="••••••••"
+               onkeydown="if(event.key==='Enter') iniciarSesion()">
+
+        <button class="login-btn" onclick="iniciarSesion()" id="btnLogin">
+            Ingresar
+        </button>
+
+        <div class="login-error" id="loginError"></div>
+    </div>
+</div>
+
+<!-- ══ PANEL ADMIN ══════════════════════════════════════════════ -->
+<div id="panelAdmin">
+
+    <!-- Header -->
+    <div class="header">
+        <div class="header-logo">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 520" role="img">
+                <defs>
+                    <linearGradient id="ha1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#21A8F6"/><stop offset="100%" stop-color="#0B49E8"/></linearGradient>
+                    <linearGradient id="ha2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#6BCB17"/><stop offset="100%" stop-color="#24A72E"/></linearGradient>
+                    <linearGradient id="ha3" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFC21A"/><stop offset="100%" stop-color="#FF8C00"/></linearGradient>
+                    <linearGradient id="ha4" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#0B49E8"/><stop offset="50%" stop-color="#43B02A"/><stop offset="100%" stop-color="#FF8C00"/></linearGradient>
+                </defs>
+                <path d="M105 65 L305 65 L515 305 L710 65 L900 65 L525 430 L470 430 Z" fill="url(#ha1)"/>
+                <path d="M565 405 L900 90 L1165 385 L1015 385 L900 240 L800 350 L1005 350 L1065 420 L700 420 Z" fill="url(#ha2)"/>
+                <path d="M1228 351 A115 115 0 0 1 1458 351 Z" fill="url(#ha3)"/>
+                <g stroke="#FFB000" stroke-width="15" stroke-linecap="round"><line x1="1343" y1="165" x2="1343" y2="112"/><line x1="1230" y1="214" x2="1190" y2="174"/><line x1="1456" y1="214" x2="1496" y2="174"/></g>
+                <path d="M70 490 C 355 395, 650 355, 980 352 C 1210 350, 1410 370, 1560 410" fill="none" stroke="url(#ha4)" stroke-width="15" stroke-linecap="round"/>
+            </svg>
+            <div class="header-info">
+                <div class="header-titulo">SmartPOS Admin</div>
+                <div class="header-sub">VAO Sistemas</div>
+            </div>
+        </div>
+        <div class="header-right">
+            <button class="btn-logout" onclick="cerrarSesion()">🚪 Salir</button>
+        </div>
+    </div>
+
+    <!-- Contenido -->
+    <div class="contenido">
+
+        <!-- Stats -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-numero" id="statTotal">—</div>
+                <div class="stat-label">Clientes</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-numero" id="statActivos">—</div>
+                <div class="stat-label">Activos</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-numero" id="statVentasMes">—</div>
+                <div class="stat-label">Ventas este mes</div>
+            </div>
+        </div>
+
+        <!-- Lista clientes -->
+        <div class="seccion">
+            <div class="seccion-header">
+                <div class="seccion-titulo">Clientes</div>
+                <button class="btn-primario btn-verde" onclick="abrirModalAlta()">
+                    ＋ Nuevo cliente
+                </button>
+            </div>
+
+            <div id="contenedorClientes">
+                <div class="cargando-clientes">
+                    <div class="spinner" style="border-top-color:var(--azul);border-color:var(--borde);width:28px;height:28px;margin:0 auto 12px;"></div>
+                    Cargando clientes...
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ══ MODAL ALTA CLIENTE ═══════════════════════════════════════ -->
+<div class="modal-overlay" id="modalAlta">
+    <div class="modal">
+        <div class="modal-titulo">➕ Nuevo cliente</div>
+
+        <div class="form-fila">
+            <div class="form-grupo">
+                <label class="form-label">Prefijo *</label>
+                <input type="text" class="form-input" id="altaPrefijo"
+                       placeholder="MC"
+                       maxlength="4"
+                       oninput="this.value=this.value.toUpperCase().replace(/[^A-Z]/g,''); validarPrefijo()"
+                       style="font-family:monospace;font-weight:900;letter-spacing:2px;font-size:1.1rem;">
+                <div class="prefijo-check" id="prefijoCheck"></div>
+            </div>
+            <div class="form-grupo">
+                <label class="form-label">Plan</label>
+                <select class="form-select" id="altaPlan">
+                    <option value="PRUEBA">Prueba (gratis)</option>
+                    <option value="BASICO">Básico</option>
+                    <option value="PRO">Pro</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-grupo">
+            <label class="form-label">Nombre del negocio *</label>
+            <input type="text" class="form-input" id="altaNombre" placeholder="El Carrito de María">
+        </div>
+
+        <div class="form-fila">
+            <div class="form-grupo">
+                <label class="form-label">Contacto (dueño)</label>
+                <input type="text" class="form-input" id="altaContacto" placeholder="María García">
+            </div>
+            <div class="form-grupo">
+                <label class="form-label">Teléfono / WhatsApp</label>
+                <input type="text" class="form-input" id="altaTelefono" placeholder="549294...">
+            </div>
+        </div>
+
+        <div class="form-grupo">
+            <label class="form-label">Correo</label>
+            <input type="email" class="form-input" id="altaCorreo" placeholder="maria@correo.com">
+        </div>
+
+        <div class="form-fila">
+            <div class="form-grupo">
+                <label class="form-label">Alias de pago</label>
+                <input type="text" class="form-input" id="altaAlias" placeholder="mariagarciabariloche">
+            </div>
+            <div class="form-grupo">
+                <label class="form-label">PIN de acceso *</label>
+                <input type="text" class="form-input" id="altaPin"
+                       placeholder="1234" maxlength="8"
+                       oninput="this.value=this.value.replace(/[^0-9]/g,'')"
+                       style="letter-spacing:4px;font-weight:900;">
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button class="btn-cancelar" onclick="cerrarModalAlta()">Cancelar</button>
+            <button class="btn-primario btn-verde" onclick="crearCliente()" id="btnCrear" style="font-size:0.9rem;padding:13px;">
+                Crear cliente
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+const APP_VERSION = 1;
+const API_URL = 'https://script.google.com/macros/s/AKfycbzJ3NY7XJ_DXtCYAhvJhRL-Dhnzib5EsnYUDcXt6XIYnV4gTQ1p-GwUhqDaLjJLZVi2/exec';
+const LS_TOKEN = 'vao_admin_token';
+const LS_TOKEN_EXP = 'vao_admin_token_exp';
+
+let tokenAdmin = '';
+let clientesCargados = [];
+
+// ── SESIÓN ────────────────────────────────────────────────────────
+function sesionGuardada() {
+    const token = localStorage.getItem(LS_TOKEN);
+    const exp   = parseInt(localStorage.getItem(LS_TOKEN_EXP) || '0');
+    if (token && exp > Date.now()) { tokenAdmin = token; return true; }
+    localStorage.removeItem(LS_TOKEN);
+    localStorage.removeItem(LS_TOKEN_EXP);
+    return false;
+}
+
+function guardarSesion(token, expira) {
+    tokenAdmin = token;
+    localStorage.setItem(LS_TOKEN, token);
+    localStorage.setItem(LS_TOKEN_EXP, expira.toString());
+}
+
+function cerrarSesion() {
+    localStorage.removeItem(LS_TOKEN);
+    localStorage.removeItem(LS_TOKEN_EXP);
+    tokenAdmin = '';
+    document.getElementById('panelAdmin').style.display = 'none';
+    document.getElementById('panelLogin').style.display  = 'flex';
+    document.getElementById('inputClave').value = '';
+}
+
+// ── LOGIN ─────────────────────────────────────────────────────────
+async function iniciarSesion() {
+    const clave = document.getElementById('inputClave').value.trim();
+    const btn   = document.getElementById('btnLogin');
+    const err   = document.getElementById('loginError');
+    err.style.display = 'none';
+    if (!clave) { mostrarError('Ingresá tu clave'); return; }
+
+    btn.innerHTML = '<span class="spinner"></span>';
+    btn.disabled  = true;
+
+    try {
+        const data = encodeURIComponent(JSON.stringify({ clave }));
+        const r    = await fetch(API_URL + '?action=adminLogin&data=' + data, { redirect: 'follow' });
+        const res  = await r.json();
+
+        if (res.error) { mostrarError(res.error); return; }
+        if (res.success && res.token) {
+            guardarSesion(res.token, res.expira);
+            mostrarAdmin();
+        }
+    } catch(e) {
+        mostrarError('Error de conexión — verificá internet');
+    } finally {
+        btn.innerHTML = 'Ingresar';
+        btn.disabled  = false;
+    }
+}
+
+function mostrarError(msg) {
+    const err = document.getElementById('loginError');
+    err.textContent = msg;
+    err.style.display = 'block';
+}
+
+// ── PANEL ADMIN ───────────────────────────────────────────────────
+function mostrarAdmin() {
+    document.getElementById('panelLogin').style.display = 'none';
+    document.getElementById('panelAdmin').style.display = 'block';
+    cargarClientes();
+}
+
+async function cargarClientes() {
+    try {
+        const data = encodeURIComponent(JSON.stringify({ token: tokenAdmin }));
+        const r    = await fetch(API_URL + '?action=getResumenAdmin&data=' + data, { redirect: 'follow' });
+        const res  = await r.json();
+
+        if (res.error) { toast('Error: ' + res.error, 'rojo'); return; }
+
+        clientesCargados = res.clientes || [];
+        renderClientes();
+        actualizarStats();
+    } catch(e) {
+        document.getElementById('contenedorClientes').innerHTML =
+            '<div class="cargando-clientes">Error de conexión</div>';
+    }
+}
+
+function actualizarStats() {
+    const total   = clientesCargados.length;
+    const activos = clientesCargados.filter(c => c.activo).length;
+    const ventas  = clientesCargados.reduce((s, c) => s + (c.ventasMes || 0), 0);
+
+    document.getElementById('statTotal').textContent   = total;
+    document.getElementById('statActivos').textContent = activos;
+    document.getElementById('statVentasMes').textContent =
+        ventas > 0 ? '$' + Math.round(ventas / 1000) + 'k' : '$0';
+}
+
+function renderClientes() {
+    const cont = document.getElementById('contenedorClientes');
+
+    if (!clientesCargados.length) {
+        cont.innerHTML = '<div class="cargando-clientes">No hay clientes todavía.<br>Creá el primero con el botón ＋</div>';
+        return;
+    }
+
+    cont.innerHTML = `
+    <table class="tabla-clientes">
+        <thead>
+            <tr>
+                <th>Prefijo</th>
+                <th>Negocio</th>
+                <th>Estado</th>
+                <th>Config</th>
+                <th>Ventas mes</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${clientesCargados.map(c => `
+            <tr>
+                <td><span class="prefijo-tag">${c.prefijo}</span></td>
+                <td><strong>${c.nombre || '—'}</strong></td>
+                <td>
+                    <span class="badge ${c.activo ? 'badge-activo' : 'badge-inactivo'}">
+                        ${c.activo ? '✅ Activo' : '❌ Inactivo'}
+                    </span>
+                </td>
+                <td>
+                    <span class="badge ${c.tienePin ? 'badge-ok' : 'badge-pendiente'}">
+                        ${c.tienePin ? '🔑 PIN' : '⚠️ Sin PIN'}
+                    </span>
+                </td>
+                <td style="font-weight:700;color:var(--verde);">
+                    ${c.ventasMes > 0 ? '$' + c.ventasMes.toLocaleString('es-AR') : '—'}
+                </td>
+                <td>
+                    <div class="acciones">
+                        <button class="btn-accion"
+                            style="background:#E3F2FD;color:var(--azul-dark);"
+                            onclick="abrirPOS('${c.prefijo}')">🖥️ POS</button>
+                        <button class="btn-accion"
+                            style="background:${c.activo ? '#FFEBEE' : '#E8F5E9'};color:${c.activo ? 'var(--rojo)' : 'var(--verde)'};"
+                            onclick="toggleActivo('${c.prefijo}', ${c.activo})">
+                            ${c.activo ? '🔒 Suspender' : '✅ Activar'}
+                        </button>
+                    </div>
+                </td>
+            </tr>`).join('')}
+        </tbody>
+    </table>`;
+}
+
+// ── ALTA CLIENTE ──────────────────────────────────────────────────
+function abrirModalAlta() {
+    document.getElementById('modalAlta').classList.add('visible');
+    document.getElementById('altaPrefijo').focus();
+}
+
+function cerrarModalAlta() {
+    document.getElementById('modalAlta').classList.remove('visible');
+    ['altaPrefijo','altaNombre','altaContacto','altaTelefono',
+     'altaCorreo','altaAlias','altaPin'].forEach(id => {
+        document.getElementById(id).value = '';
+        document.getElementById(id).classList.remove('error');
+    });
+    document.getElementById('prefijoCheck').textContent = '';
+}
+
+function validarPrefijo() {
+    const prefijo = document.getElementById('altaPrefijo').value.trim();
+    const check   = document.getElementById('prefijoCheck');
+    if (prefijo.length < 2) { check.textContent = ''; return; }
+    const existe = clientesCargados.some(c => c.prefijo === prefijo);
+    if (existe) {
+        check.textContent = '⚠️ Prefijo ya existe';
+        check.className   = 'prefijo-check prefijo-err';
+    } else {
+        check.textContent = '✅ Disponible';
+        check.className   = 'prefijo-check prefijo-ok';
+    }
+}
+
+async function crearCliente() {
+    const prefijo  = document.getElementById('altaPrefijo').value.trim();
+    const nombre   = document.getElementById('altaNombre').value.trim();
+    const contacto = document.getElementById('altaContacto').value.trim();
+    const telefono = document.getElementById('altaTelefono').value.trim();
+    const correo   = document.getElementById('altaCorreo').value.trim();
+    const alias    = document.getElementById('altaAlias').value.trim();
+    const pin      = document.getElementById('altaPin').value.trim();
+    const plan     = document.getElementById('altaPlan').value;
+
+    // Validaciones
+    let ok = true;
+    if (!prefijo || prefijo.length < 2) {
+        document.getElementById('altaPrefijo').classList.add('error'); ok = false;
+    }
+    if (!nombre) {
+        document.getElementById('altaNombre').classList.add('error'); ok = false;
+    }
+    if (!pin || pin.length < 4) {
+        document.getElementById('altaPin').classList.add('error'); ok = false;
+    }
+    if (!ok) { toast('Completá los campos obligatorios', 'rojo'); return; }
+
+    if (clientesCargados.some(c => c.prefijo === prefijo)) {
+        toast('El prefijo ' + prefijo + ' ya existe', 'rojo'); return;
+    }
+
+    const btn = document.getElementById('btnCrear');
+    btn.innerHTML = '<span class="spinner"></span> Creando...';
+    btn.disabled  = true;
+
+    try {
+        const payload = { prefijo, nombre, telefono, correo, categoria: plan, aliasPago: alias, tokenMP: '' };
+        const data    = encodeURIComponent(JSON.stringify(payload));
+        const r       = await fetch(API_URL + '?action=crearVendedor&data=' + data, { redirect: 'follow' });
+        const res     = await r.json();
+
+        if (res.error) { toast('Error: ' + res.error, 'rojo'); return; }
+
+        // Si viene PIN, cargarlo via seteo directo no es posible desde frontend
+        // El PIN se carga vía Apps Script — informamos al admin
+        toast('✅ ' + nombre + ' (' + prefijo + ') creado. Cargá el PIN desde el script.', 'verde');
+        cerrarModalAlta();
+        await cargarClientes();
+
+        // Mostrar instrucción PIN
+        setTimeout(() => {
+            toast('🔑 Ejecutá en Apps Script: setPIN("' + prefijo + '", "' + pin + '")', '');
+        }, 3000);
+
+    } catch(e) {
+        toast('Error de conexión', 'rojo');
+    } finally {
+        btn.innerHTML = 'Crear cliente';
+        btn.disabled  = false;
+    }
+}
+
+async function toggleActivo(prefijo, estaActivo) {
+    const accion = estaActivo ? 'suspender' : 'activar';
+    if (!confirm('¿' + (estaActivo ? 'Suspender' : 'Activar') + ' al cliente ' + prefijo + '?')) return;
+
+    // Actualizar en VENDEDORES — cambiar campo Activo
+    // Por ahora informamos — en v2 del admin esto será automático
+    toast('Para ' + accion + ' a ' + prefijo + ': cambiá "Activo" en la planilla VENDEDORES', '');
+}
+
+function abrirPOS(prefijo) {
+    window.open('pos.html?p=' + prefijo, '_blank');
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────
+let _toastTimer;
+function toast(msg, tipo) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className   = 'toast visible ' + (tipo || '');
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => el.classList.remove('visible'), 4000);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────
+if (sesionGuardada()) {
+    mostrarAdmin();
+} else {
+    document.getElementById('panelLogin').style.display = 'flex';
+}
+</script>
+</body>
+</html>
