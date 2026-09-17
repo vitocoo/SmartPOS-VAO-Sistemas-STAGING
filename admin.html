@@ -615,13 +615,6 @@ body {
                 <label class="form-label">Alias de pago</label>
                 <input type="text" class="form-input" id="altaAlias" placeholder="mariagarciabariloche">
             </div>
-            <div class="form-grupo">
-                <label class="form-label">PIN de acceso *</label>
-                <input type="text" class="form-input" id="altaPin"
-                       placeholder="1234" maxlength="8"
-                       oninput="this.value=this.value.replace(/[^0-9]/g,'')"
-                       style="letter-spacing:4px;font-weight:900;">
-            </div>
         </div>
 
         <div class="modal-footer">
@@ -804,7 +797,7 @@ function abrirModalAlta() {
 function cerrarModalAlta() {
     document.getElementById('modalAlta').classList.remove('visible');
     ['altaPrefijo','altaNombre','altaContacto','altaTelefono',
-     'altaCorreo','altaAlias','altaPin'].forEach(id => {
+     'altaCorreo','altaAlias'].forEach(id => {
         document.getElementById(id).value = '';
         document.getElementById(id).classList.remove('error');
     });
@@ -832,7 +825,6 @@ async function crearCliente() {
     const telefono = document.getElementById('altaTelefono').value.trim();
     const correo   = document.getElementById('altaCorreo').value.trim();
     const alias    = document.getElementById('altaAlias').value.trim();
-    const pin      = document.getElementById('altaPin').value.trim();
     const plan     = document.getElementById('altaPlan').value;
 
     // Validaciones
@@ -842,9 +834,6 @@ async function crearCliente() {
     }
     if (!nombre) {
         document.getElementById('altaNombre').classList.add('error'); ok = false;
-    }
-    if (!pin || pin.length < 4) {
-        document.getElementById('altaPin').classList.add('error'); ok = false;
     }
     if (!ok) { toast('Completá los campos obligatorios', 'rojo'); return; }
 
@@ -864,16 +853,11 @@ async function crearCliente() {
 
         if (res.error) { toast('Error: ' + res.error, 'rojo'); return; }
 
-        // Si viene PIN, cargarlo via seteo directo no es posible desde frontend
-        // El PIN se carga vía Apps Script — informamos al admin
-        toast('✅ ' + nombre + ' (' + prefijo + ') creado. Cargá el PIN desde el script.', 'verde');
         cerrarModalAlta();
         await cargarClientes();
 
-        // Mostrar instrucción PIN
-        setTimeout(() => {
-            toast('🔑 Ejecutá en Apps Script: setPIN("' + prefijo + '", "' + pin + '")', '');
-        }, 3000);
+        // El servidor generó el PIN — se muestra UNA sola vez, no se recupera después
+        alert('✅ Cliente ' + nombre + ' (' + prefijo + ') creado.\n\nPIN de acceso: ' + res.pin + '\n\nAnotalo ahora — no se puede volver a ver.');
 
     } catch(e) {
         toast('Error de conexión', 'rojo');
