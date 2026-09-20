@@ -630,13 +630,21 @@ body {
 <div class="toast" id="toast"></div>
 
 <script>
-const APP_VERSION = 1;
+const APP_VERSION = 5;
+document.addEventListener('DOMContentLoaded', function(){
+    var tag = document.createElement('span');
+    tag.id = 'version-tag';
+    tag.style.cssText = 'position:fixed;right:10px;bottom:8px;font-size:11px;color:#8a95a1;z-index:9999;';
+    tag.textContent = 'v' + APP_VERSION;
+    document.body.appendChild(tag);
+});
 const API_URL = 'https://script.google.com/macros/s/AKfycbx_JUJEZnu1r_zFkVZ7EL9kQj8l0G5brldf1Oo9tWrokUWDiyQUH91OpCx4rWmsv-G4/exec';
 const LS_TOKEN = 'vao_admin_token';
 const LS_TOKEN_EXP = 'vao_admin_token_exp';
 
 let tokenAdmin = '';
 let clientesCargados = [];
+let PLANES_DISPONIBLES = ['PRUEBA','BASICO','PRO'];
 
 // ── SESIÓN ────────────────────────────────────────────────────────
 function sesionGuardada() {
@@ -714,11 +722,34 @@ async function cargarClientes() {
         if (res.error) { toast('Error: ' + res.error, 'rojo'); return; }
 
         clientesCargados = res.clientes || [];
+
+        try {
+            const rp = await fetch(API_URL + '?action=listarPlanes&data=' + data, { redirect: 'follow' });
+            const dp = await rp.json();
+            if (dp.planes && dp.planes.length) PLANES_DISPONIBLES = dp.planes;
+        } catch(ep) {}
+
         renderClientes();
         actualizarStats();
     } catch(e) {
         document.getElementById('contenedorClientes').innerHTML =
             '<div class="cargando-clientes">Error de conexión</div>';
+    }
+}
+
+async function aplicarPlanUI(prefijo) {
+    const plan = document.getElementById('planSel_' + prefijo).value;
+    if (!confirm('¿Aplicar el plan ' + plan + ' a ' + prefijo + '? Esto va a cambiar qué módulos tiene habilitados.')) return;
+    try {
+        const payload = { token: tokenAdmin, prefijo: prefijo, plan: plan };
+        const data = encodeURIComponent(JSON.stringify(payload));
+        const r = await fetch(API_URL + '?action=aplicarPlan&data=' + data, { redirect: 'follow' });
+        const res = await r.json();
+        if (res.error) { toast('Error: ' + res.error, 'rojo'); return; }
+        toast('✅ Plan ' + plan + ' aplicado a ' + prefijo, 'verde');
+        await cargarClientes();
+    } catch(e) {
+        toast('Error de conexión', 'rojo');
     }
 }
 
@@ -748,6 +779,7 @@ function renderClientes() {
                 <th>Prefijo</th>
                 <th>Negocio</th>
                 <th>Estado</th>
+                <th>Plan</th>
                 <th>Config</th>
                 <th>Ventas mes</th>
                 <th>Acciones</th>
@@ -760,8 +792,16 @@ function renderClientes() {
                 <td><strong>${c.nombre || '—'}</strong></td>
                 <td>
                     <span class="badge ${c.activo ? 'badge-activo' : 'badge-inactivo'}">
-                        ${c.activo ? '✅ Activo' : '❌ Inactivo'}
+                        ${c.activo ? '✅ Activo' : (c.estado === 'BAJA' ? '⛔ Baja' : '❌ Suspendido')}
                     </span>
+                </td>
+                <td style="font-size:0.78rem;color:var(--gris);">
+                    <select id="planSel_${c.prefijo}" style="font-size:0.75rem;padding:2px;border-radius:6px;">
+                        ${PLANES_DISPONIBLES.map(p => `<option value="${p}" ${p === c.plan ? 'selected' : ''}>${p}</option>`).join('')}
+                    </select>
+                    <button class="btn-accion" style="background:#EDE7F6;color:#5E35B1;padding:2px 8px;font-size:0.7rem;margin-top:4px;"
+                        onclick="aplicarPlanUI('${c.prefijo}')">Aplicar</button>
+                    ${c.fechaVence ? '<div style="margin-top:2px;">vence ' + c.fechaVence + '</div>' : ''}
                 </td>
                 <td>
                     <span class="badge ${c.tienePin ? 'badge-ok' : 'badge-pendiente'}">
@@ -846,7 +886,7 @@ async function crearCliente() {
     btn.disabled  = true;
 
     try {
-        const payload = { prefijo, nombre, telefono, correo, categoria: plan, aliasPago: alias, tokenMP: '' };
+        const payload = { prefijo, nombre, telefono, correo, categoria: plan, aliasPago: alias, tokenMP: '', token: tokenAdmin };
         const data    = encodeURIComponent(JSON.stringify(payload));
         const r       = await fetch(API_URL + '?action=crearVendedor&data=' + data, { redirect: 'follow' });
         const res     = await r.json();
@@ -871,9 +911,20 @@ async function toggleActivo(prefijo, estaActivo) {
     const accion = estaActivo ? 'suspender' : 'activar';
     if (!confirm('¿' + (estaActivo ? 'Suspender' : 'Activar') + ' al cliente ' + prefijo + '?')) return;
 
-    // Actualizar en VENDEDORES — cambiar campo Activo
-    // Por ahora informamos — en v2 del admin esto será automático
-    toast('Para ' + accion + ' a ' + prefijo + ': cambiá "Activo" en la planilla VENDEDORES', '');
+    try {
+        const payload = { token: tokenAdmin, prefijo: prefijo };
+        const data    = encodeURIComponent(JSON.stringify(payload));
+        const action  = estaActivo ? 'suspenderCliente' : 'activarCliente';
+        const r       = await fetch(API_URL + '?action=' + action + '&data=' + data, { redirect: 'follow' });
+        const res     = await r.json();
+
+        if (res.error) { toast('Error: ' + res.error, 'rojo'); return; }
+
+        toast(estaActivo ? '🔒 Cliente suspendido' : '✅ Cliente activado', estaActivo ? '' : 'verde');
+        await cargarClientes();
+    } catch(e) {
+        toast('Error de conexión', 'rojo');
+    }
 }
 
 function abrirPOS(prefijo) {

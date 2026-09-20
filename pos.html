@@ -606,6 +606,7 @@ body {
     <button class="btn-tool ajuste" id="btnAjuste" onclick="abrirAjuste()">✏️ Ajustar</button>
     <button class="btn-tool hoy" id="btnHoy" onclick="abrirResumen()">📋 Hoy</button>
     <button class="btn-tool stats" id="btnReportes" onclick="window.location.href='reportes.html?p='+PREFIJO">📊 Reportes</button>
+    <button class="btn-tool ajuste" id="btnGestion" onclick="abrirGestion()">💳 Gestión</button>
     <button class="btn-tool cerrar" onclick="irAlInicio()">🚪 Salir</button>
 </div>
 
@@ -845,6 +846,34 @@ body {
     </div>
 </div>
 
+<!-- ===== MODAL GESTIÓN (Fiados / Préstamos / Caja / Salidas) ===== -->
+<div class="modal-bg" id="modalGestion" onclick="if(event.target===this)cerrarGestion()">
+    <div class="modal-sheet" style="padding-bottom:20px;">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <span class="modal-titulo">💳 Gestión</span>
+            <button class="modal-cerrar" onclick="cerrarGestion()">✕</button>
+        </div>
+        <div style="display:flex;gap:6px;padding:0 20px 10px;flex-wrap:wrap;flex-shrink:0;">
+            <button class="tab-gestion" id="tabBtnFiados"    onclick="cambiarTabGestion('fiados')"    style="display:none;">🤝 Fiados</button>
+            <button class="tab-gestion" id="tabBtnPrestamos" onclick="cambiarTabGestion('prestamos')" style="display:none;">💵 Préstamos</button>
+            <button class="tab-gestion" id="tabBtnCaja"      onclick="cambiarTabGestion('caja')"       style="display:none;">🧾 Caja</button>
+            <button class="tab-gestion" id="tabBtnSalidas"   onclick="cambiarTabGestion('salidas')"    style="display:none;">📤 Salidas</button>
+            <button class="tab-gestion" id="tabBtnOfertas"   onclick="cambiarTabGestion('ofertas')"    style="display:none;">🏷️ Ofertas</button>
+        </div>
+        <div style="overflow-y:auto;flex:1;min-height:0;padding:0 20px 20px;" id="gestionContenido"></div>
+    </div>
+</div>
+
+<style>
+.tab-gestion{ padding:8px 14px;border:none;border-radius:20px;background:var(--lavanda-light,#EEE);color:var(--lavanda-dark,#333);font-weight:700;font-size:0.82rem;cursor:pointer; }
+.tab-gestion.activo{ background:var(--naranja,#F07D3A);color:#fff; }
+.gestion-item{ background:#fff;border:1px solid #eee;border-radius:10px;padding:10px 12px;margin-bottom:8px; }
+.gestion-item .fila1{ display:flex;justify-content:space-between;font-weight:700; }
+.gestion-item .fila2{ font-size:0.8rem;color:var(--gris,#888);margin-top:2px; }
+.gestion-item button{ margin-top:8px;padding:6px 10px;border:none;border-radius:8px;background:var(--naranja,#F07D3A);color:#fff;font-size:0.78rem;cursor:pointer; }
+</style>
+
 <script>
 // ========== GUARD: prefijo requerido en la URL ==========
 if (!new URLSearchParams(window.location.search).has('p')) {
@@ -854,7 +883,7 @@ if (!new URLSearchParams(window.location.search).has('p')) {
 
 // ========== CONFIG ==========
 const API_URL  = 'https://script.google.com/macros/s/AKfycbx_JUJEZnu1r_zFkVZ7EL9kQj8l0G5brldf1Oo9tWrokUWDiyQUH91OpCx4rWmsv-G4/exec';
-const APP_VERSION = 5;
+const APP_VERSION = 9;
 const PREFIJO  = new URLSearchParams(window.location.search).get("p")?.toUpperCase() || "NE";
 const HOY_KEY    = 'vao_ventas_' + PREFIJO + '_' + new Date().toISOString().slice(0, 10);
 const CARRITO_KEY= 'vao_carrito_' + PREFIJO;
@@ -868,12 +897,18 @@ function generarToolbarSegunPacks(config) {
         btnIngreso:  config.pack1_ingreso,
         btnHoy:      config.pack1_hoy,
         btnAjuste:   config.pack2_editor_stock,
-        btnReportes: config.pack2_reportes
+        btnReportes: config.pack2_reportes,
+        btnGestion:  !!(config.extra_fiados || config.extra_prestamos || config.extra_caja || config.extra_salidas || config.extra_config_ofertas)
     };
     Object.keys(botonesPorPack).forEach(function(id) {
         const btn = document.getElementById(id);
         if (btn) btn.style.display = (botonesPorPack[id] === true) ? '' : 'none';
     });
+    document.getElementById('tabBtnFiados').style.display    = config.extra_fiados    ? '' : 'none';
+    document.getElementById('tabBtnPrestamos').style.display = config.extra_prestamos ? '' : 'none';
+    document.getElementById('tabBtnCaja').style.display      = config.extra_caja      ? '' : 'none';
+    document.getElementById('tabBtnSalidas').style.display   = config.extra_salidas   ? '' : 'none';
+    document.getElementById('tabBtnOfertas').style.display   = config.extra_config_ofertas ? '' : 'none';
 }
 
 function mostrarFormularioPin(mensajeError) {
@@ -929,10 +964,12 @@ async function verificarSesionCliente() {
             CONFIG_ACTUAL = d.config;
             generarToolbarSegunPacks(CONFIG_ACTUAL);
             ocultarOverlayPin();
+            cargarVendedorYTokenMP(); // recién ahora hay sesión válida — antes se llamaba sin esperar el login
         }
     } catch (e) {
         // sin conexión: no bloqueamos al cliente por falta de red si ya tenía token
         ocultarOverlayPin();
+        cargarVendedorYTokenMP();
     }
 }
 
@@ -942,22 +979,17 @@ verificarSesionCliente();
 let vendedorActual = {
     nombre: PREFIJO, aliasPago: '', linkMP: '', correo: ''
 };
-let mpTokenActual = ''; // se carga desde Script Properties o localStorage
+let mpTokenActual = ''; // ya NO guarda el token real — solo 'ok' si está configurado, o '' si no
 
-// Cargar token MP de forma segura
+// Verificar si el cliente tiene MercadoPago configurado (server-side) —
+// el token real nunca llega al navegador. Para cobrar se usa crearPreferenciaMP().
 async function cargarTokenMP() {
-    // 1. Intentar desde Script Properties (servidor seguro)
     try {
-        const r = await fetch(API_URL + '?action=getTokenMP&prefijo=' + PREFIJO, { redirect:'follow' });
+        const url = API_URL + '?action=getTokenMP&prefijo=' + PREFIJO + '&data=' + encodeURIComponent(JSON.stringify({ token: localStorage.getItem(TOKEN_KEY) || '' }));
+        const r = await fetch(url, { redirect:'follow' });
         const d = await r.json();
-        if (d.configurado && d.token) {
-            mpTokenActual = d.token;
-            return;
-        }
+        if (d.configurado) mpTokenActual = 'ok';
     } catch(e) {}
-    // 2. Fallback: localStorage del dispositivo (configurado por el vendedor)
-    const local = localStorage.getItem('vao_mp_token_' + PREFIJO);
-    if (local) mpTokenActual = local;
 }
 function colorPorPrefijo(prefijo) {
     const paletas = [
@@ -971,8 +1003,10 @@ function colorPorPrefijo(prefijo) {
 }
 
 function irAlInicio() {
+    const token = localStorage.getItem(TOKEN_KEY);
     localStorage.removeItem(TOKEN_KEY);
-    fetch(API_URL + '?action=cerrarSesion&prefijo=' + PREFIJO, { redirect: 'follow' }).catch(() => {});
+    const data = encodeURIComponent(JSON.stringify({ token: token || '' }));
+    fetch(API_URL + '?action=cerrarSesion&prefijo=' + PREFIJO + '&data=' + data, { redirect: 'follow' }).catch(() => {});
     window.location.href = 'index.html';
 }
 
@@ -983,24 +1017,27 @@ document.title = PREFIJO + ' · Punto de Venta';
 const [_c1, _c2] = colorPorPrefijo(PREFIJO);
 document.getElementById('headerAvatar').style.background = `linear-gradient(135deg,${_c1},${_c2})`;
 
-// Cargar datos reales del vendedor + token MP en paralelo
-Promise.all([
-    fetch(API_URL + '?action=getVendedores', { redirect:'follow' }).then(r => r.json()),
-    cargarTokenMP()
-]).then(([data]) => {
-    const v = (data.vendedores || []).find(v => v.prefijo === PREFIJO);
-    if (v) {
-        vendedorActual = v;
-        document.getElementById('headerTitulo').textContent = v.nombre;
-        document.getElementById('headerSub').textContent = 'VAO Sistemas';
-        document.title = v.nombre + ' · Punto de Venta';
-        const qrCanv = document.getElementById('qrTransfCanvas');
-        if (qrCanv && qrCanv.children.length > 0 && v.aliasPago) {
-            qrCanv.innerHTML = '';
-            new QRCode(qrCanv, { text: v.aliasPago, width:180, height:180, colorDark:'#1E88E5', colorLight:'#ffffff', correctLevel: QRCode.CorrectLevel.M });
+// Cargar datos reales del vendedor + token MP en paralelo — se llama recién
+// cuando ya hay una sesión válida (ver verificarSesionCliente), no antes.
+function cargarVendedorYTokenMP() {
+    Promise.all([
+        fetch(API_URL + '?action=getVendedores&prefijo=' + PREFIJO + '&data=' + encodeURIComponent(JSON.stringify({ token: localStorage.getItem(TOKEN_KEY) || '' })), { redirect:'follow' }).then(r => r.json()),
+        cargarTokenMP()
+    ]).then(([data]) => {
+        const v = (data.vendedores || []).find(v => v.prefijo === PREFIJO);
+        if (v) {
+            vendedorActual = v;
+            document.getElementById('headerTitulo').textContent = v.nombre;
+            document.getElementById('headerSub').textContent = 'VAO Sistemas';
+            document.title = v.nombre + ' · Punto de Venta';
+            const qrCanv = document.getElementById('qrTransfCanvas');
+            if (qrCanv && qrCanv.children.length > 0 && v.aliasPago) {
+                qrCanv.innerHTML = '';
+                new QRCode(qrCanv, { text: v.aliasPago, width:180, height:180, colorDark:'#1E88E5', colorLight:'#ffffff', correctLevel: QRCode.CorrectLevel.M });
+            }
         }
-    }
-}).catch(() => {});
+    }).catch(() => {});
+}
 
 
 // ========== ESTADO ==========
@@ -1041,7 +1078,7 @@ async function cargarProductos() {
     const ind = document.getElementById('indicadorCarga');
     ind.classList.remove('ok'); ind.classList.add('cargando'); ind.title = 'Cargando...';
     try {
-        const r = await fetch(API_URL + '?action=getProductos&prefijo=' + PREFIJO, { redirect: 'follow' });
+        const r = await fetch(API_URL + '?action=getProductos&prefijo=' + PREFIJO + '&data=' + encodeURIComponent(JSON.stringify({ token: localStorage.getItem(TOKEN_KEY) || '' })), { redirect: 'follow' });
         const data = await r.json();
         const arr = data.productos || [];
         productos = arr.filter(p => p.name && p.price > 0);
@@ -1071,7 +1108,7 @@ async function generarQRMP(total) {
     qrDiv.innerHTML = '<div style="width:180px;height:180px;display:flex;align-items:center;justify-content:center;"><div style="width:32px;height:32px;border:3px solid #009ee3;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;"></div></div>';
     if (estado) estado.textContent = 'Generando QR...';
 
-    // Usar token cargado de forma segura (Properties o localStorage)
+    // El token real nunca llega acá — mpTokenActual solo indica 'ok'/'' (configurado o no)
     const tokenMP = mpTokenActual || '';
     const linkMP  = vendedorActual.linkMP  || '';
     const alias   = vendedorActual.aliasPago || '';
@@ -1088,25 +1125,21 @@ async function generarQRMP(total) {
     try {
         const descripcion = 'Venta ' + vendedorActual.nombre + ' - ' + new Date().toLocaleDateString('es-AR');
         const payload = {
-            items: [{ title: descripcion, quantity: 1, unit_price: total, currency_id: 'ARS' }],
-            payment_methods: { excluded_payment_types: [] },
-            back_urls: { success: window.location.href },
-            auto_return: 'approved'
+            token: localStorage.getItem(TOKEN_KEY) || '',
+            total: total,
+            descripcion: descripcion,
+            backUrl: window.location.href
         };
 
-        const resp = await fetch('https://api.mercadopago.com/checkout/preferences', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tokenMP },
-            body: JSON.stringify(payload)
-        });
+        const resp = await fetch(API_URL + '?action=crearPreferenciaMP&prefijo=' + PREFIJO + '&data=' + encodeURIComponent(JSON.stringify(payload)), { redirect: 'follow' });
         const data = await resp.json();
 
-        if (data.id) {
+        if (data.initPoint) {
             qrDiv.innerHTML = '';
-            new QRCode(qrDiv, { text: data.init_point, width:180, height:180, colorDark:'#009ee3', colorLight:'#ffffff', correctLevel: QRCode.CorrectLevel.M });
+            new QRCode(qrDiv, { text: data.initPoint, width:180, height:180, colorDark:'#009ee3', colorLight:'#ffffff', correctLevel: QRCode.CorrectLevel.M });
             if (estado) estado.textContent = '✅ QR listo — $' + total.toLocaleString('es-AR');
         } else {
-            throw new Error(data.message || 'Sin ID de preferencia');
+            throw new Error(data.error || 'Sin preferencia de pago');
         }
     } catch(e) {
         // Fallback con link estático del vendedor
@@ -1490,7 +1523,7 @@ async function confirmarVenta() {
             precioModificado: i.precioModificado || false,
             precioOriginal: i.precioOriginal || 0
         }));
-        const payload = { items: ventaData, metodoPago: metodoPagoActual };
+        const payload = { items: ventaData, metodoPago: metodoPagoActual, token: localStorage.getItem(TOKEN_KEY) || '' };
         const url = API_URL + '?action=vender&prefijo=' + PREFIJO + '&data=' + encodeURIComponent(JSON.stringify(payload));
         const r = await fetch(url, { redirect: 'follow' });
         const resp = await r.json();
@@ -1646,7 +1679,7 @@ async function guardarIngreso() {
     const btn = document.getElementById('ingBtnGuardar');
     btn.disabled = true; btn.textContent = '⏳ Guardando...';
     try {
-        const payload = { nombre, cantidad, costo, venta, proveedor, categoria };
+        const payload = { nombre, cantidad, costo, venta, proveedor, categoria, token: localStorage.getItem(TOKEN_KEY) || '' };
         const url = API_URL + '?action=ingresarMercaderia&prefijo=' + PREFIJO + '&data=' + encodeURIComponent(JSON.stringify(payload));
         const r = await fetch(url, { redirect: 'follow' });
         const resp = await r.json();
@@ -1717,7 +1750,7 @@ async function guardarAjuste() {
     const nuevoCodigo = document.getElementById('ajusteCodigoNuevo').value.trim().toUpperCase() || ajusteProducto.codigo || '';
     btn.disabled = true; btn.textContent = '⏳ Guardando...';
     try {
-        const payload = { id: ajusteProducto.id, stock: nuevoStock, precio: nuevoPrecio, nombre: nuevoNombre, codigo: nuevoCodigo };
+        const payload = { id: ajusteProducto.id, stock: nuevoStock, precio: nuevoPrecio, nombre: nuevoNombre, codigo: nuevoCodigo, token: localStorage.getItem(TOKEN_KEY) || '' };
         const url = API_URL + '?action=ajustarStock&prefijo=' + PREFIJO + '&data=' + encodeURIComponent(JSON.stringify(payload));
         const r = await fetch(url, { redirect: 'follow' });
         const resp = await r.json();
@@ -1741,8 +1774,7 @@ function programarRecordatorioCierre() {
     if (ahora >= cierre) return;
     const ms = cierre - ahora;
     setTimeout(function() {
-        const hoyKey = new Date().toISOString().slice(0, 10);
-        const ventas = JSON.parse(localStorage.getItem('vao_ventas_' + hoyKey) || '[]');
+        const ventas = JSON.parse(localStorage.getItem(HOY_KEY) || '[]');
         if (!ventas.length) return;
         if (Notification.permission === 'granted') {
             new Notification('🔒 ' + (document.getElementById('headerTitulo').textContent || PREFIJO), { body: '¡Son las 22:05! Cerrá el día.' });
@@ -1757,7 +1789,7 @@ async function abrirEstadisticas() {
     document.getElementById('statsContenido').innerHTML =
         '<div style="text-align:center;padding:40px;color:#bbb;"><div style="font-size:2rem;">⏳</div><div>Cargando...</div></div>';
     try {
-        const url = API_URL + '?action=getEstadisticas&prefijo=' + PREFIJO;
+        const url = API_URL + '?action=getEstadisticas&prefijo=' + PREFIJO + '&data=' + encodeURIComponent(JSON.stringify({ token: localStorage.getItem(TOKEN_KEY) || '' }));
         const r = await fetch(url, { redirect: 'follow' });
         const data = await r.json();
         renderEstadisticas(data);
@@ -1877,5 +1909,283 @@ renderVenta();
     </div>
 </div>
 
+<script>
+// ===============================================================
+// GESTIÓN — Fiados / Préstamos / Caja / Salidas
+// ===============================================================
+let TAB_GESTION_ACTUAL = null;
+
+function abrirGestion() {
+    document.getElementById('modalGestion').classList.add('open');
+    const primerTab = ['fiados','prestamos','caja','salidas','ofertas'].find(function(t){
+        return document.getElementById('tabBtn' + t.charAt(0).toUpperCase() + t.slice(1)).style.display !== 'none';
+    });
+    if (primerTab) cambiarTabGestion(primerTab);
+}
+function cerrarGestion() { document.getElementById('modalGestion').classList.remove('open'); }
+
+function cambiarTabGestion(tab) {
+    TAB_GESTION_ACTUAL = tab;
+    ['fiados','prestamos','caja','salidas','ofertas'].forEach(function(t){
+        const btn = document.getElementById('tabBtn' + t.charAt(0).toUpperCase() + t.slice(1));
+        btn.classList.toggle('activo', t === tab);
+    });
+    if (tab === 'fiados')    renderFiados();
+    if (tab === 'prestamos') renderPrestamos();
+    if (tab === 'caja')      renderCaja();
+    if (tab === 'salidas')   renderSalidas();
+    if (tab === 'ofertas')   renderOfertas();
+}
+
+function _tokenActual() { return localStorage.getItem(TOKEN_KEY) || ''; }
+
+async function _llamarAPI(action, data) {
+    const payload = Object.assign({ token: _tokenActual() }, data || {});
+    const url = API_URL + '?action=' + action + '&prefijo=' + PREFIJO + '&data=' + encodeURIComponent(JSON.stringify(payload));
+    const r = await fetch(url, { redirect: 'follow' });
+    return r.json();
+}
+
+// ---------- FIADOS ----------
+async function renderFiados() {
+    const cont = document.getElementById('gestionContenido');
+    cont.innerHTML = '<div style="text-align:center;padding:20px;color:#bbb;">Cargando...</div>';
+    const res = await _llamarAPI('listarFiados', {});
+    if (res.error) { cont.innerHTML = '<div style="color:var(--rojo);">' + res.error + '</div>'; return; }
+
+    let html = '<button class="btn-guardar" style="margin-bottom:14px;" onclick="mostrarFormNuevoFiado()">+ Nuevo fiado</button>';
+    html += '<div id="formNuevoFiado" style="display:none;margin-bottom:14px;">' +
+        '<div class="form-grupo"><label class="form-label">Cliente *</label><input class="form-input" id="fiCliente"></div>' +
+        '<div class="form-grupo"><label class="form-label">Teléfono</label><input class="form-input" id="fiTelefono"></div>' +
+        '<div class="form-grupo"><label class="form-label">Monto *</label><input class="form-input" type="number" id="fiMonto"></div>' +
+        '<div class="form-grupo"><label class="form-label">Descripción</label><input class="form-input" id="fiDescripcion"></div>' +
+        '<div id="fiError" style="color:var(--rojo);font-size:0.85rem;margin-bottom:8px;"></div>' +
+        '<button class="btn-guardar" onclick="guardarFiado()">Guardar</button></div>';
+
+    if (res.fiados.length === 0) html += '<div style="text-align:center;color:#bbb;padding:20px;">Sin fiados registrados</div>';
+    res.fiados.forEach(function(f){
+        const colorEstado = f.estado === 'PAGADO' ? 'var(--verde,#5A9E6F)' : (f.estado === 'VENCIDO' ? 'var(--rojo,#D64242)' : 'var(--naranja,#F07D3A)');
+        html += '<div class="gestion-item">' +
+            '<div class="fila1"><span>' + f.cliente + '</span><span style="color:' + colorEstado + '">' + f.estado + '</span></div>' +
+            '<div class="fila2">' + f.descripcion + ' — ' + f.fecha + (f.telefono ? ' — ' + f.telefono : '') + '</div>' +
+            '<div class="fila2">Saldo: <strong>$' + f.saldo.toLocaleString('es-AR') + '</strong> de $' + f.totalOriginal.toLocaleString('es-AR') + '</div>' +
+            (f.estado !== 'PAGADO' ? '<button onclick="abonarFiadoUI(\'' + f.idFiado + '\',' + f.saldo + ')">💰 Registrar abono</button>' : '') +
+            '</div>';
+    });
+    cont.innerHTML = html;
+}
+function mostrarFormNuevoFiado() { document.getElementById('formNuevoFiado').style.display = 'block'; }
+async function guardarFiado() {
+    const cliente = document.getElementById('fiCliente').value.trim();
+    const monto = parseFloat(document.getElementById('fiMonto').value);
+    const err = document.getElementById('fiError');
+    if (!cliente || !monto || monto <= 0) { err.textContent = 'Completá cliente y monto'; return; }
+    const res = await _llamarAPI('crearFiado', {
+        cliente: cliente, telefono: document.getElementById('fiTelefono').value.trim(),
+        monto: monto, descripcion: document.getElementById('fiDescripcion').value.trim()
+    });
+    if (res.error) { err.textContent = res.error; return; }
+    renderFiados();
+}
+async function abonarFiadoUI(idFiado, saldoActual) {
+    const abono = parseFloat(prompt('Monto del abono (saldo actual: $' + saldoActual.toLocaleString('es-AR') + '):'));
+    if (!abono || abono <= 0) return;
+    const res = await _llamarAPI('abonarFiado', { idFiado: idFiado, abono: abono });
+    if (res.error) { alert(res.error); return; }
+    renderFiados();
+}
+
+// ---------- PRÉSTAMOS ----------
+async function renderPrestamos() {
+    const cont = document.getElementById('gestionContenido');
+    cont.innerHTML = '<div style="text-align:center;padding:20px;color:#bbb;">Cargando...</div>';
+    const res = await _llamarAPI('listarPrestamos', {});
+    if (res.error) { cont.innerHTML = '<div style="color:var(--rojo);">' + res.error + '</div>'; return; }
+
+    let html = '<button class="btn-guardar" style="margin-bottom:14px;" onclick="mostrarFormNuevoPrestamo()">+ Nuevo préstamo</button>';
+    html += '<div id="formNuevoPrestamo" style="display:none;margin-bottom:14px;">' +
+        '<div class="form-grupo"><label class="form-label">Acreedor *</label><input class="form-input" id="prAcreedor"></div>' +
+        '<div class="form-grupo"><label class="form-label">Monto *</label><input class="form-input" type="number" id="prMonto"></div>' +
+        '<div class="form-grupo"><label class="form-label">Cuotas</label><input class="form-input" type="number" id="prCuotas" value="1"></div>' +
+        '<div class="form-grupo"><label class="form-label">Motivo</label><input class="form-input" id="prMotivo"></div>' +
+        '<div id="prError" style="color:var(--rojo);font-size:0.85rem;margin-bottom:8px;"></div>' +
+        '<button class="btn-guardar" onclick="guardarPrestamo()">Guardar</button></div>';
+
+    if (res.prestamos.length === 0) html += '<div style="text-align:center;color:#bbb;padding:20px;">Sin préstamos registrados</div>';
+    res.prestamos.forEach(function(p){
+        html += '<div class="gestion-item">' +
+            '<div class="fila1"><span>' + p.acreedor + '</span><span>' + p.estado + '</span></div>' +
+            '<div class="fila2">' + (p.motivo||'') + ' — ' + p.fecha + ' — ' + p.cuotas + ' cuota(s) de $' + p.montoCuota.toLocaleString('es-AR') + '</div>' +
+            '<div class="fila2">Saldo: <strong>$' + p.saldo.toLocaleString('es-AR') + '</strong> de $' + p.monto.toLocaleString('es-AR') + '</div>' +
+            (p.estado !== 'PAGADO' ? '<button onclick="pagarPrestamoUI(\'' + p.id + '\',' + p.saldo + ')">💰 Registrar pago</button>' : '') +
+            '</div>';
+    });
+    cont.innerHTML = html;
+}
+function mostrarFormNuevoPrestamo() { document.getElementById('formNuevoPrestamo').style.display = 'block'; }
+async function guardarPrestamo() {
+    const acreedor = document.getElementById('prAcreedor').value.trim();
+    const monto = parseFloat(document.getElementById('prMonto').value);
+    const err = document.getElementById('prError');
+    if (!acreedor || !monto || monto <= 0) { err.textContent = 'Completá acreedor y monto'; return; }
+    const res = await _llamarAPI('crearPrestamo', {
+        acreedor: acreedor, monto: monto,
+        cuotas: parseInt(document.getElementById('prCuotas').value) || 1,
+        motivo: document.getElementById('prMotivo').value.trim()
+    });
+    if (res.error) { err.textContent = res.error; return; }
+    renderPrestamos();
+}
+async function pagarPrestamoUI(idPrestamo, saldoActual) {
+    const monto = parseFloat(prompt('Monto del pago (saldo actual: $' + saldoActual.toLocaleString('es-AR') + '):'));
+    if (!monto || monto <= 0) return;
+    const res = await _llamarAPI('pagarPrestamo', { idPrestamo: idPrestamo, monto: monto });
+    if (res.error) { alert(res.error); return; }
+    renderPrestamos();
+}
+
+// ---------- CAJA ----------
+async function renderCaja() {
+    const cont = document.getElementById('gestionContenido');
+    cont.innerHTML = '<div style="text-align:center;padding:20px;color:#bbb;">Cargando...</div>';
+    const estado = await _llamarAPI('getCajaActual', {});
+    if (estado.error) { cont.innerHTML = '<div style="color:var(--rojo);">' + estado.error + '</div>'; return; }
+
+    let html = '';
+    if (!estado.abierta) {
+        html += '<div class="form-grupo"><label class="form-label">Monto de apertura</label><input class="form-input" type="number" id="cajaMontoApertura" value="0"></div>' +
+            '<button class="btn-guardar" onclick="abrirCajaUI()">🔓 Abrir caja</button>';
+    } else {
+        html += '<div class="gestion-item"><div class="fila1"><span>Caja abierta</span></div>' +
+            '<div class="fila2">Apertura: $' + estado.montoApertura.toLocaleString('es-AR') + '</div></div>' +
+            '<div class="form-grupo"><label class="form-label">Movimiento — Tipo</label>' +
+            '<select class="form-input" id="cajaTipoMov"><option value="INGRESO">Ingreso</option><option value="RETIRO">Retiro</option></select></div>' +
+            '<div class="form-grupo"><label class="form-label">Monto</label><input class="form-input" type="number" id="cajaMontoMov"></div>' +
+            '<div class="form-grupo"><label class="form-label">Motivo</label><input class="form-input" id="cajaMotivoMov"></div>' +
+            '<button class="btn-guardar" onclick="registrarMovCajaUI()">➕ Registrar movimiento</button>' +
+            '<button class="btn-guardar" style="background:var(--rojo,#D64242);margin-top:8px;" onclick="mostrarCierreCaja()">🔒 Cerrar caja</button>' +
+            '<div id="cierreCajaForm" style="display:none;margin-top:12px;">' +
+            '<div class="form-grupo"><label class="form-label">Monto real contado</label><input class="form-input" type="number" id="cajaMontoReal"></div>' +
+            '<button class="btn-guardar" onclick="cerrarCajaUI()">Confirmar cierre</button></div>';
+    }
+    cont.innerHTML = html;
+}
+async function abrirCajaUI() {
+    const monto = parseFloat(document.getElementById('cajaMontoApertura').value) || 0;
+    const res = await _llamarAPI('abrirCaja', { monto: monto });
+    if (res.error) { alert(res.error); return; }
+    renderCaja();
+}
+async function registrarMovCajaUI() {
+    const tipo = document.getElementById('cajaTipoMov').value;
+    const monto = parseFloat(document.getElementById('cajaMontoMov').value);
+    if (!monto || monto <= 0) { alert('Monto inválido'); return; }
+    const res = await _llamarAPI('movimientoCaja', { tipo: tipo, monto: monto, motivo: document.getElementById('cajaMotivoMov').value.trim() });
+    if (res.error) { alert(res.error); return; }
+    renderCaja();
+}
+function mostrarCierreCaja() { document.getElementById('cierreCajaForm').style.display = 'block'; }
+async function cerrarCajaUI() {
+    const montoReal = parseFloat(document.getElementById('cajaMontoReal').value);
+    if (isNaN(montoReal)) { alert('Ingresá el monto real contado'); return; }
+    const res = await _llamarAPI('cerrarCaja', { montoReal: montoReal });
+    if (res.error) { alert(res.error); return; }
+    alert('Caja cerrada. Esperado: $' + res.esperado.toLocaleString('es-AR') + ' — Real: $' + res.real.toLocaleString('es-AR') + ' — Diferencia: $' + res.diferencia.toLocaleString('es-AR'));
+    renderCaja();
+}
+
+// ---------- SALIDAS ----------
+async function renderSalidas() {
+    const cont = document.getElementById('gestionContenido');
+    cont.innerHTML = '<div style="text-align:center;padding:20px;color:#bbb;">Cargando...</div>';
+    const res = await _llamarAPI('getSalidas', {});
+    if (res.error) { cont.innerHTML = '<div style="color:var(--rojo);">' + res.error + '</div>'; return; }
+
+    let html = '<div style="background:var(--arena,#FBF6ED);border-radius:10px;padding:10px;margin-bottom:14px;font-size:0.8rem;color:var(--gris,#888);">' +
+        'Para registrar una salida (merma/consumo), buscá el producto desde "✏️ Ajustar" y anotá la cantidad acá, o usá el buscador de abajo.</div>' +
+        '<div class="form-grupo"><label class="form-label">Producto (buscar)</label><input class="form-input" id="salBuscar" oninput="buscarProductoSalida()" autocomplete="off" style="text-transform:uppercase;"></div>' +
+        '<div id="salResultados" style="background:white;border:1px solid #eee;border-radius:10px;max-height:120px;overflow-y:auto;display:none;margin-bottom:10px;"></div>' +
+        '<div id="salPanel" style="display:none;">' +
+        '<div class="form-grupo"><label class="form-label">Cantidad</label><input class="form-input" type="number" id="salCantidad" value="1"></div>' +
+        '<div class="form-grupo"><label class="form-label">Tipo</label><select class="form-input" id="salTipo"><option value="MERMA">Merma</option><option value="CONSUMO">Consumo interno</option></select></div>' +
+        '<div class="form-grupo"><label class="form-label">Motivo</label><input class="form-input" id="salMotivo"></div>' +
+        '<button class="btn-guardar" onclick="guardarSalidaUI()">Registrar salida</button></div>';
+
+    html += '<div style="margin-top:16px;font-weight:700;font-size:0.85rem;">Últimas salidas</div>';
+    if (res.items.length === 0) html += '<div style="text-align:center;color:#bbb;padding:14px;">Sin salidas registradas</div>';
+    res.items.slice(0,20).forEach(function(it){
+        html += '<div class="gestion-item"><div class="fila1"><span>' + it.producto + '</span><span>-' + it.cantidad + '</span></div>' +
+            '<div class="fila2">' + it.tipo + (it.motivo ? ' — ' + it.motivo : '') + ' — ' + it.fecha + '</div></div>';
+    });
+    cont.innerHTML = html;
+}
+let SAL_PRODUCTO_ID = null;
+function buscarProductoSalida() {
+    const q = document.getElementById('salBuscar').value.trim().toUpperCase();
+    const cont = document.getElementById('salResultados');
+    if (!q || !productos.length) { cont.style.display = 'none'; return; }
+    const matches = productos.filter(function(p){ return p.name.indexOf(q) !== -1; }).slice(0,8);
+    if (matches.length === 0) { cont.style.display = 'none'; return; }
+    cont.innerHTML = matches.map(function(p){
+        return '<div style="padding:8px 10px;border-bottom:1px solid #f2f2f2;cursor:pointer;" onclick="seleccionarProductoSalida(' + p.id + ',\'' + p.name.replace(/'/g,"\\'") + '\')">' + p.name + ' <span style="color:#bbb;">(stock ' + p.stock + ')</span></div>';
+    }).join('');
+    cont.style.display = 'block';
+}
+function seleccionarProductoSalida(id, nombre) {
+    SAL_PRODUCTO_ID = id;
+    document.getElementById('salBuscar').value = nombre;
+    document.getElementById('salResultados').style.display = 'none';
+    document.getElementById('salPanel').style.display = 'block';
+}
+async function guardarSalidaUI() {
+    if (!SAL_PRODUCTO_ID) { alert('Elegí un producto de la lista'); return; }
+    const cantidad = parseInt(document.getElementById('salCantidad').value) || 0;
+    if (cantidad <= 0) { alert('Cantidad inválida'); return; }
+    const res = await _llamarAPI('registrarSalida', {
+        id: SAL_PRODUCTO_ID, cantidad: cantidad,
+        tipo: document.getElementById('salTipo').value,
+        motivo: document.getElementById('salMotivo').value.trim()
+    });
+    if (res.error) { alert(res.error); return; }
+    SAL_PRODUCTO_ID = null;
+    renderSalidas();
+}
+// ---------- OFERTAS ----------
+async function renderOfertas() {
+    const cont = document.getElementById('gestionContenido');
+    cont.innerHTML = '<div style="text-align:center;padding:20px;color:#bbb;">Cargando...</div>';
+    const res = await _llamarAPI('getOfertas', {});
+    if (res.error) { cont.innerHTML = '<div style="color:var(--rojo);">' + res.error + '</div>'; return; }
+
+    let html = '<div style="background:var(--arena,#FBF6ED);border-radius:10px;padding:10px;margin-bottom:14px;font-size:0.78rem;color:var(--gris,#888);">' +
+        'Para cobrar con precio de oferta: buscá el producto en el POS, agregalo al carrito y tocá el precio para editarlo al valor de oferta que ves acá.</div>';
+
+    function seccion(titulo, items, campoTexto) {
+        if (!items.length) return '';
+        let h = '<div style="font-weight:700;margin:14px 0 6px;">' + titulo + ' (' + items.length + ')</div>';
+        items.forEach(function(p){
+            h += '<div class="gestion-item"><div class="fila1"><span>' + p.nombre + '</span>' +
+                '<span>' + (p.precioOriginal ? '<s style="color:#bbb;font-weight:400;">$'+p.precioOriginal.toLocaleString('es-AR')+'</s> ' : '') +
+                '$' + p.precio.toLocaleString('es-AR') + '</span></div>' +
+                '<div class="fila2">Stock: ' + p.stock + (p.porcentaje ? ' — ' + p.porcentaje + '% off' : '') + (p.fechaIngreso ? ' — ingresó ' + p.fechaIngreso : '') + '</div></div>';
+        });
+        return h;
+    }
+
+    if (res.diaTematico.activo && res.diaTematico.productos.length) {
+        html += seccion('🎉 Día temático — ' + res.diaTematico.categoria, res.diaTematico.productos);
+    }
+    html += seccion('⚡ Relámpago', res.relampago);
+    html += seccion('⭐ Destacadas', res.destacadas);
+    html += seccion('🔥 Especiales', res.especiales);
+    html += seccion('🏷️ Personalizadas', res.personalizada);
+    html += seccion('💲 Simple', res.simple);
+    html += seccion('📉 Últimas unidades', res.ultimasUnidades);
+    html += seccion('🆕 Recién llegados', res.recienLlegados);
+
+    if (html.indexOf('gestion-item') === -1) html += '<div style="text-align:center;color:#bbb;padding:20px;">Sin ofertas activas ahora mismo. Se configuran editando las columnas RELAMPAGO/DESTACADA/ESPECIAL_PRECIO/PERSONALIZADA_TIPO/OFERTA_SIMPLE_PRECIO en INVENTARIO_' + PREFIJO + ', o los límites/horarios en CONFIG_' + PREFIJO + '.</div>';
+    cont.innerHTML = html;
+}
+</script>
 </body>
 </html>

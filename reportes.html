@@ -121,7 +121,29 @@ body { font-family:'DM Sans',sans-serif; background:var(--blanco); color:var(--t
         <div class="header-titulo">SmartPOS</div>
         <div class="header-sub">Reportes</div>
     </div>
-    <a href="venta.html" class="btn-volver">← Volver</a>
+    <button class="btn-volver" id="btnOfertas" onclick="abrirOfertasReporte()" style="margin-left:8px;display:none;">🏷️ Ofertas</button>
+    <button class="btn-volver" id="btnHistorial" onclick="abrirHistorial()" style="margin-left:8px;display:none;">📋 Historial</button>
+    <a href="#" class="btn-volver" id="btnVolver">← Volver</a>
+</div>
+
+<div id="panelOfertas" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;">
+    <div style="background:#fff;max-width:480px;margin:40px auto;border-radius:14px;padding:16px;max-height:80vh;overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <strong>🏷️ Ofertas activas hoy</strong>
+            <button onclick="document.getElementById('panelOfertas').style.display='none'" style="border:none;background:none;font-size:1.2rem;cursor:pointer;">✕</button>
+        </div>
+        <div id="ofertasLista">Cargando...</div>
+    </div>
+</div>
+
+<div id="panelHistorial" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;">
+    <div style="background:#fff;max-width:480px;margin:40px auto;border-radius:14px;padding:16px;max-height:80vh;overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <strong>📋 Historial — todo lo que ingresó al local</strong>
+            <button onclick="document.getElementById('panelHistorial').style.display='none'" style="border:none;background:none;font-size:1.2rem;cursor:pointer;">✕</button>
+        </div>
+        <div id="historialLista">Cargando...</div>
+    </div>
 </div>
 
 <div id="appContent">
@@ -129,10 +151,25 @@ body { font-family:'DM Sans',sans-serif; background:var(--blanco); color:var(--t
 </div>
 
 <script>
-const APP_VERSION = 1;
+const APP_VERSION = 5;
 const API_URL = 'https://script.google.com/macros/s/AKfycbx_JUJEZnu1r_zFkVZ7EL9kQj8l0G5brldf1Oo9tWrokUWDiyQUH91OpCx4rWmsv-G4/exec';
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const DIAS_SEM = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+
+// Prefijo del cliente — mismo patrón que pos.html. Sin prefijo no hay a qué reporte volver.
+if (!new URLSearchParams(window.location.search).has('p')) {
+    window.location.href = 'index.html';
+    throw new Error('Sin prefijo en la URL — redirigiendo a index.html');
+}
+const PREFIJO = new URLSearchParams(window.location.search).get('p').toUpperCase();
+document.getElementById('btnVolver').href = 'pos.html?p=' + PREFIJO;
+document.addEventListener('DOMContentLoaded', function(){
+    var tag = document.createElement('span');
+    tag.id = 'version-tag';
+    tag.style.cssText = 'position:fixed;right:10px;bottom:8px;font-size:11px;color:#c0c8d0;z-index:9999;';
+    tag.textContent = 'v' + APP_VERSION;
+    document.body.appendChild(tag);
+});
 
 let todasVentas = [];
 let mesActual = new Date().getMonth();
@@ -142,8 +179,13 @@ let metodosActivos = new Set(['TODOS']);
 
 async function init() {
     try {
-        const r = await fetch(API_URL + '?action=getVentas', { redirect:'follow' });
+        const r = await fetch(API_URL + '?action=getVentas&prefijo=' + PREFIJO + '&data=' + encodeURIComponent(JSON.stringify({ token: localStorage.getItem('vao_token_' + PREFIJO) || '' })), { redirect:'follow' });
         const data = await r.json();
+        if (data.error) {
+            document.getElementById('appContent').innerHTML =
+                '<div class="loading" style="color:var(--rojo);">❌ ' + data.error + ' — <a href="pos.html?p=' + PREFIJO + '" style="color:inherit;">volvé al POS para iniciar sesión</a>.</div>';
+            return;
+        }
         todasVentas = data.ventas || [];
         diasSeleccionados.add(new Date().toISOString().slice(0,10));
         renderApp();
@@ -151,6 +193,62 @@ async function init() {
         document.getElementById('appContent').innerHTML =
             '<div class="loading" style="color:var(--rojo);">❌ Error al cargar. Verificá la conexión.</div>';
     }
+
+    // Historial es opcional (plan del cliente) — se chequea aparte para no
+    // frenar la carga de ventas si el config tarda o falla.
+    try {
+        const token = localStorage.getItem('vao_token_' + PREFIJO) || '';
+        const rc = await fetch(API_URL + '?action=getConfig&prefijo=' + PREFIJO + '&data=' + encodeURIComponent(JSON.stringify({token:token})), { redirect:'follow' });
+        const dc = await rc.json();
+        if (dc.config && dc.config.extra_historial) document.getElementById('btnHistorial').style.display = '';
+        if (dc.config && dc.config.extra_config_ofertas) document.getElementById('btnOfertas').style.display = '';
+    } catch(e) {}
+}
+
+async function abrirOfertasReporte() {
+    document.getElementById('panelOfertas').style.display = 'block';
+    const lista = document.getElementById('ofertasLista');
+    lista.textContent = 'Cargando...';
+    try {
+        const token = localStorage.getItem('vao_token_' + PREFIJO) || '';
+        const r = await fetch(API_URL + '?action=getOfertas&prefijo=' + PREFIJO + '&data=' + encodeURIComponent(JSON.stringify({token:token})), { redirect:'follow' });
+        const d = await r.json();
+        if (d.error) { lista.textContent = d.error; return; }
+        const grupos = [
+            ['🎉 Día temático', d.diaTematico.activo ? d.diaTematico.productos : []],
+            ['⚡ Relámpago', d.relampago], ['⭐ Destacadas', d.destacadas], ['🔥 Especiales', d.especiales],
+            ['🏷️ Personalizadas', d.personalizada], ['💲 Simple', d.simple],
+            ['📉 Últimas unidades', d.ultimasUnidades], ['🆕 Recién llegados', d.recienLlegados]
+        ];
+        let html = '';
+        grupos.forEach(function(g){
+            if (!g[1].length) return;
+            html += '<div style="font-weight:700;margin:10px 0 4px;">' + g[0] + ' (' + g[1].length + ')</div>';
+            g[1].forEach(function(p){
+                html += '<div style="border-bottom:1px solid #eee;padding:6px 0;font-size:0.85rem;">' + p.nombre +
+                    ' <span style="color:#888;">— $' + p.precio.toLocaleString('es-AR') + '</span></div>';
+            });
+        });
+        lista.innerHTML = html || 'Sin ofertas activas ahora mismo.';
+    } catch(e) { lista.textContent = 'Error al cargar las ofertas.'; }
+}
+
+async function abrirHistorial() {
+    document.getElementById('panelHistorial').style.display = 'block';
+    const lista = document.getElementById('historialLista');
+    lista.textContent = 'Cargando...';
+    try {
+        const token = localStorage.getItem('vao_token_' + PREFIJO) || '';
+        const r = await fetch(API_URL + '?action=getHistorial&prefijo=' + PREFIJO + '&data=' + encodeURIComponent(JSON.stringify({token:token})), { redirect:'follow' });
+        const d = await r.json();
+        if (d.error) { lista.textContent = d.error; return; }
+        if (!d.items.length) { lista.textContent = 'Sin movimientos de ingreso todavía.'; return; }
+        lista.innerHTML = d.items.slice(0,50).map(function(it){
+            return '<div style="border-bottom:1px solid #eee;padding:8px 0;font-size:0.85rem;">' +
+                '<strong>' + it.producto + '</strong> +' + it.cantidad +
+                '<div style="color:#888;font-size:0.78rem;">' + it.fecha + (it.proveedor ? ' — ' + it.proveedor : '') + (it.nota ? ' — ' + it.nota : '') + '</div></div>';
+        }).join('');
+    } catch(e) { lista.textContent = 'Error al cargar el historial.'; }
 }
 
 function getMetodosDisponibles() {
