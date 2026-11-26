@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+<link rel="icon" type="image/png" href="favicon-48.png"><!-- logo nuevo VAO -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>VAO Sistemas · SmartPOS</title>
+<title>[STAGING] VAO Sistemas · SmartPOS</title>
 <link rel="icon" type="image/svg+xml" href="VA_logo_vector_master.svg">
 <style>
   :root{
@@ -168,6 +169,26 @@
     outline-offset: 3px;
   }
 
+  /* v10: invitación tranquila a crear la cuenta (lleva al formulario de la prueba gratis de planes.html) */
+  .crear-row{
+    text-align:center;
+    margin-top: 18px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  a.crear-link{
+    display:inline-block;
+    margin-top: 4px;
+    color: var(--green);
+    font-weight: 600;
+    text-decoration: none;
+    border-bottom: 1px solid currentColor;
+  }
+  a.crear-link:hover{ color: var(--green-hover); }
+  a.crear-link:focus-visible{ outline: 2px solid var(--blue); outline-offset: 3px; }
+  .error-slot .error-crear{ margin-top: 4px; color: var(--muted); }
+  .error-slot .error-crear a{ color: var(--green); font-weight: 600; }
+
   .admin-row{
     text-align:center;
     margin-top: 26px;
@@ -201,35 +222,22 @@
 </style>
 </head>
 <body>
+<!-- STAGING-ONLY:INICIO -->
+<style>
+@keyframes vaoStgPulso {
+    0%, 94%, 100% { transform: scale(1); }
+    96% { transform: scale(1.12); box-shadow: 0 0 0 6px rgba(255,120,0,.35); }
+    98% { transform: scale(1); }
+}
+#vaoStagingBadge { animation: vaoStgPulso 30s ease-in-out infinite; transform-origin: left bottom; }
+@media (prefers-reduced-motion: reduce) { #vaoStagingBadge { animation: none; } }
+</style>
+<div id="vaoStagingBadge" style="position:fixed;left:6px;bottom:6px;z-index:99999;padding:3px 8px;border-radius:10px;background:rgba(255,120,0,0.88);color:#fff;font:600 11px/1.3 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;pointer-events:none;box-shadow:0 1px 3px rgba(0,0,0,.25);">🧪 STAGING · sistema de pruebas</div>
+<!-- STAGING-ONLY:FIN -->
 
   <div class="stage">
     <div class="mark">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 520" height="64"
-      style="flex-shrink:0;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.3));"
-      role="img" aria-label="VAO Sistemas">
-        <defs>
-          <linearGradient id="hbg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%"
-      stop-color="#21A8F6"/><stop offset="100%" stop-color="#0B49E8"/></linearGradient>
-          <linearGradient id="hgg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%"
-      stop-color="#6BCB17"/><stop offset="100%" stop-color="#24A72E"/></linearGradient>
-          <linearGradient id="hsg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%"
-      stop-color="#FFC21A"/><stop offset="100%" stop-color="#FF8C00"/></linearGradient>
-          <linearGradient id="hhg" x1="0" y1="0" x2="1" y2="0"><stop offset="0%"
-      stop-color="#0B49E8"/><stop offset="28%" stop-color="#16A6EF"/><stop offset="50%"
-      stop-color="#43B02A"/><stop offset="70%" stop-color="#D6CF00"/><stop offset="86%"
-      stop-color="#FFB000"/><stop offset="100%" stop-color="#FF8C00"/></linearGradient>
-        </defs>
-        <path d="M105 65 L305 65 L515 305 L710 65 L900 65 L525 430 L470 430 Z"
-      fill="url(#hbg)"/>
-        <path d="M565 405 L900 90 L1165 385 L1015 385 L900 240 L800 350 L1005 350
-      L1065 420 L700 420 Z" fill="url(#hgg)"/>
-        <path d="M1228 351 A115 115 0 0 1 1458 351 Z" fill="url(#hsg)"/>
-        <g stroke="#FFB000" stroke-width="15" stroke-linecap="round"><line x1="1343"
-      y1="165" x2="1343" y2="112"/><line x1="1230" y1="214" x2="1190" y2="174"/>
-      <line x1="1456" y1="214" x2="1496" y2="174"/></g>
-        <path d="M70 490 C 355 395, 650 355, 980 352 C 1210 350, 1410 370, 1560 410"
-      fill="none" stroke="url(#hhg)" stroke-width="15" stroke-linecap="round"/>
-      </svg>
+      <img src="logo_oscuro.png" alt="VAO Sistemas" height="64" style="height:64px;width:auto;display:block;">
     </div>
 
     <div class="brand">
@@ -254,10 +262,16 @@
         >
         <div class="error-slot" aria-live="polite">
           <p id="error-msg" hidden>Código inválido</p>
+          <p id="error-crear" class="error-crear" hidden>¿No tenés código? <a href="planes.html#empezar">Creá tu cuenta</a> y te lo enviamos por correo.</p>
         </div>
 
         <button type="submit" id="entrar">Entrar</button>
       </form>
+    </div>
+
+    <div class="crear-row">
+      <span>¿Todavía no tenés cuenta?</span><br>
+      <a class="crear-link" id="crear-cuenta" href="planes.html#empezar">Creala ahora · 7 días gratis →</a>
     </div>
 
     <div class="admin-row">
@@ -269,7 +283,7 @@
   <span class="version-tag" id="version-tag"></span>
 
 <script>
-  const APP_VERSION = 8;
+  const APP_VERSION = 10;   // v10: «¿Todavía no tenés cuenta? Creala ahora · 7 días gratis →» (planes.html#empezar)
 
   document.getElementById('version-tag').textContent = 'v' + APP_VERSION;
 
@@ -280,6 +294,7 @@
 
   function mostrarError(mostrar){
     errorMsg.hidden = !mostrar;
+    document.getElementById('error-crear').hidden = !mostrar;   // v10
     input.classList.toggle('invalid', mostrar);
   }
 
