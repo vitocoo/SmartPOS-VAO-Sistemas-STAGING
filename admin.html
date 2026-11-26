@@ -993,7 +993,7 @@ details.ctr-com[open] > summary { border-bottom:1px solid #EEF2F6; }
 <div class="toast" id="toast"></div>
 
 <script>
-const APP_VERSION = 27;   // V27: «🔄 Renovar» también en la barra del celular (Seleccionado: …) // V25: formularios de pago blindados — titular solo números, n.º de Mercado Pago solo dígitos, ayuda para no confundir «Mercado Pago» con «Transferencia desde Mercado Pago» · V24 (servidor v045.9): 🔄 Renovar — elegís 1, 2, 3, 6 o 12 meses, el servidor calcula el importe y el nuevo vencimiento, y con la referencia se confirma (lo demás sigue en 💳 Vigencia y pagos) · V23 (servidor v045.4): la etiqueta de abajo distingue App · Servidor (getInfo) · Entorno; tocándola se ve el historial de versiones del servidor · V22.5: el Cotizador figura en P2 Gestión (no como complemento) · V22.4: cobro «como en un cuaderno» (casilla «aceptó los Términos de uso» si no hay contrato) y 🏠 comercio interno de VAO en Vigencia y pagos · V22.3: «Complemento opcional» (antes «Complemento P3»); el candado de pagos explica qué falta en STAGING y en Producción · V22.2 (v044.2): complementos «para P1, P2, P3 PRO» (antes los códigos internos); fila «Precio mensual» (dice «/ lanzamiento» solo si hay alguno); la cotización la carga cada comercio (VAO también puede, como soporte) · V22 (v044.1): planes P1 · P2 · P3 PRO integrados (activación en un paso con vista previa, cambio de plan a P3 con el pago), complementos opcionales aparte, botonera de cada comercio desde la matriz central y aviso de combinaciones contradictorias · V21 (v043): 📋 Planes y contrataciones — P1/P2/P3, prestaciones por comercio (catálogo/contratado/habilitado/suspendido), complementos, precios, historial y elecciones pendientes // V20: 💱 Cobro por comercio (cobro avanzado prender/apagar, cotizaciones USD/CLP, cobros sin terminar) y uso de la planilla
+const APP_VERSION = 28;   // V28: duplicado con botón «Sí, es otra transferencia distinta» (Renovar y Vigencia), referencias repetidas una vez «(3 pagos)», aviso verde que queda escrito al registrar un pago, Historial y vista previa con el nombre del plan (P3 PRO) // V27: «🔄 Renovar» también en la barra del celular (Seleccionado: …) // V25: formularios de pago blindados — titular solo números, n.º de Mercado Pago solo dígitos, ayuda para no confundir «Mercado Pago» con «Transferencia desde Mercado Pago» · V24 (servidor v045.9): 🔄 Renovar — elegís 1, 2, 3, 6 o 12 meses, el servidor calcula el importe y el nuevo vencimiento, y con la referencia se confirma (lo demás sigue en 💳 Vigencia y pagos) · V23 (servidor v045.4): la etiqueta de abajo distingue App · Servidor (getInfo) · Entorno; tocándola se ve el historial de versiones del servidor · V22.5: el Cotizador figura en P2 Gestión (no como complemento) · V22.4: cobro «como en un cuaderno» (casilla «aceptó los Términos de uso» si no hay contrato) y 🏠 comercio interno de VAO en Vigencia y pagos · V22.3: «Complemento opcional» (antes «Complemento P3»); el candado de pagos explica qué falta en STAGING y en Producción · V22.2 (v044.2): complementos «para P1, P2, P3 PRO» (antes los códigos internos); fila «Precio mensual» (dice «/ lanzamiento» solo si hay alguno); la cotización la carga cada comercio (VAO también puede, como soporte) · V22 (v044.1): planes P1 · P2 · P3 PRO integrados (activación en un paso con vista previa, cambio de plan a P3 con el pago), complementos opcionales aparte, botonera de cada comercio desde la matriz central y aviso de combinaciones contradictorias · V21 (v043): 📋 Planes y contrataciones — P1/P2/P3, prestaciones por comercio (catálogo/contratado/habilitado/suspendido), complementos, precios, historial y elecciones pendientes // V20: 💱 Cobro por comercio (cobro avanzado prender/apagar, cotizaciones USD/CLP, cobros sin terminar) y uso de la planilla
 document.addEventListener('DOMContentLoaded', function(){
     var tag = document.createElement('span');
     tag.id = 'version-tag';
@@ -1910,6 +1910,21 @@ function _rnMedio(m) {
     const rf = document.getElementById('rnReferencia'); if (rf) { rf.placeholder = m === 'MERCADO_PAGO' ? 'Solo números, ej.: 123456789012' : 'Como figura en el extracto'; if (m === 'MERCADO_PAGO') rf.value = rf.value.replace(/\D/g, ''); }   // V25
     _rnLimpiarResultado();
 }
+// V28: ayudas de pantalla para los pagos (solo texto; el servidor no cambia)
+function _nomPlanV28(cod) { return ((planesInfo.planes || []).find(p => p.codigo === cod) || {}).nombre || cod || '—'; }
+const CICLOS_V28 = { RENOVACION: 'renovación', NUEVO: 'ciclo nuevo' };
+// «(TES ref A, TES ref B, TES ref B, TES ref B)» → «(TES ref A, TES ref B (3 pagos))» · y en vez de «escribí la frase», el botón
+function _dupTextoV28(t) {
+    return String(t || '').replace(/\(([^()]*ref [^()]*)\)/, function (m, inner) {
+        const cnt = {}, ord = []; inner.split(', ').forEach(i => { if (!(i in cnt)) { cnt[i] = 0; ord.push(i); } cnt[i]++; });
+        return '(' + ord.map(i => cnt[i] > 1 ? i + ' (' + cnt[i] + ' pagos)' : i).join(', ') + ')';
+    }).replace('escribí ES OTRA TRANSFERENCIA.', 'tocá el botón de abajo.');
+}
+function _btnOtraTrfV28(onclick) {
+    return '<div class="rn-aviso" style="margin-top:6px;color:#5D4037;">Tocá el botón <b>solo si</b> recibiste una transferencia nueva. Si es la misma cargada dos veces, no hagas nada.</div>' +
+        '<button class="btn-accion" style="width:100%;margin-top:6px;padding:11px;background:#E65100;color:white;font-size:0.92rem;" onclick="' + onclick + '">Sí, es otra transferencia distinta</button>';
+}
+function _verV28(el) { try { if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {} }
 function _rnLimpiarResultado() { const b = document.getElementById('rnResultado'); if (b && !/rn-aviso-fijo/.test(b.innerHTML)) b.innerHTML = ''; }
 function _rnDatos(previa) {
     const v = id => (document.getElementById(id) || {}).value || '', r = _rn.estado;
@@ -1951,7 +1966,9 @@ async function _rnConfirmar(btn) {
     try {
         const pv = await _adminApi('confirmarPagoRecibido', d);   // vista previa con los datos reales (el servidor vuelve a calcular todo)
         if (pv.error) {
-            out.innerHTML = '<div class="rn-aviso">❌ ' + _esc(pv.error) + '</div>' + (pv.posibleDuplicado ? '<div class="form-grupo" style="margin-top:6px;"><label class="form-label">Si de verdad es otra transferencia, escribí ES OTRA TRANSFERENCIA y confirmá de nuevo</label><input class="form-input" maxlength="30" autocomplete="off" oninput="_rn.frase=this.value.trim()"></div>' : '');
+            out.innerHTML = '<div class="rn-aviso">❌ ' + _esc(pv.posibleDuplicado ? _dupTextoV28(pv.error) : pv.error) + '</div>' +
+                (pv.posibleDuplicado ? _btnOtraTrfV28("_rn.frase='ES OTRA TRANSFERENCIA';_rnConfirmar(document.getElementById('rnConfirmar'))") : '');   // V28: botón en vez de escribir la frase
+            _verV28(out);
             return;
         }
         if (pv.yaRegistrado) { out.innerHTML = '<div class="rn-vence">ℹ️ ' + _esc(pv.mensaje) + '</div>'; await cargarClientes(); return; }
@@ -2097,7 +2114,7 @@ function renderVigenciaPagos() {
     // Historial
     const hist = r.historial || [];
     h += '<div class="vp-caja"><h4>📜 Historial (' + hist.length + ')</h4>' + (hist.length ? '<div style="overflow-x:auto;"><table class="vp-hist"><thead><tr><th>Tipo</th><th>Plan</th><th>Período</th><th>Detalle</th></tr></thead><tbody>' +
-        hist.map(x => '<tr><td>' + _esc(TIPOS_REGISTRO[x.tipo] || x.tipo) + (x.ciclo ? '<br><span class="ayuda">' + _esc(x.ciclo) + '</span>' : '') + '</td><td>' + _esc(x.plan) + '</td><td>' +
+        hist.map(x => '<tr><td>' + _esc(TIPOS_REGISTRO[x.tipo] || x.tipo) + (x.ciclo ? '<br><span class="ayuda">' + _esc(CICLOS_V28[x.ciclo] || x.ciclo) + '</span>' : '') + '</td><td>' + _esc(planNom(x.plan)) + '</td><td>' +   // V28: «P3 PRO», no «PLUS»
             (x.inicio ? _esc(x.inicio) + ' → ' : 'hasta ') + _esc(x.fin) + '</td><td>' +
             (x.importe ? '$' + Number(x.importe).toLocaleString('es-AR') + ' · ' + _esc(x.medio) + (x.referencia ? ' · ' + _esc(x.referencia) : '') : '') +
             (x.motivo ? (x.importe ? '<br>' : '') + _esc(x.motivo) : '') + '<br><span class="ayuda">' + _esc(x.admin || '') + '</span></td></tr>').join('') +
@@ -2313,7 +2330,7 @@ function _vpResumenPrevia(accion, r) {
         L('Período', _esc(r.inicio) + ' al ' + _esc(r.fin) + ' (incluido)') + L('Próxima renovación', _esc(r.proxima)) +
         L('Tipo', r.ciclo === 'RENOVACION' ? 'renovación encadenada (sin superponer ni perder días)' : 'ciclo nuevo desde hoy') +
         L('Importe', '$' + Number(r.importe).toLocaleString('es-AR') + ' · ' + _esc(r.medio) + (r.referencia ? ' · ref. ' + _esc(r.referencia) : '')) +
-        (r.planActual !== r.planNuevo ? L('Plan', _esc(r.planActual) + ' → ' + _esc(r.planNuevo)) : '') +
+        (r.planActual !== r.planNuevo ? L('Plan', _esc(_nomPlanV28(r.planActual)) + ' → ' + _esc(_nomPlanV28(r.planNuevo))) : '') +   // V28: nombres, no códigos
         (r.seActivan && r.seActivan.length ? '<div style="color:#2E7D32;">✅ Se activan: <b>' + r.seActivan.map(_esc).join(', ') + '</b></div>' : '') +
         (r.seDesactivan && r.seDesactivan.length ? '<div style="color:#C62828;">⛔ Se desactivan: <b>' + r.seDesactivan.map(_esc).join(', ') + '</b></div>' : '') +
         (r.avisos || []).map(a => '<div style="color:#E65100;">ℹ️ ' + _esc(a) + '</div>').join('');
@@ -2338,13 +2355,13 @@ async function vpPrevia(accion, btn) {
     try {
         const r = await _adminApi(accion, Object.assign({ prefijo: vigenciaPrefijoActual }, d));
         if (r.error) {
-            box.innerHTML = '<div class="ayuda" style="color:var(--rojo);">❌ ' + _esc(r.error) + '</div>' +
-                (r.posibleDuplicado ? '<div class="form-grupo" style="margin-top:6px;"><label class="form-label">Si de verdad es otra transferencia, escribí ES OTRA TRANSFERENCIA y tocá Vista previa de nuevo</label>' +
-                    '<input class="form-input" id="vpFrase" maxlength="30" autocomplete="off"></div>' : ''); // V15
+            box.innerHTML = '<div class="ayuda" style="color:var(--rojo);">❌ ' + _esc(r.posibleDuplicado ? _dupTextoV28(r.error) : r.error) + '</div>' +
+                (r.posibleDuplicado ? _btnOtraTrfV28("_vpFraseMem='ES OTRA TRANSFERENCIA';vpPrevia('confirmarPagoRecibido', document.getElementById('vpBtnPagoPrevia'))") : ''); // V28: botón (antes casillero de la frase, V15)
+            _verV28(box);
             if (r.pagoEnCurso) await cargarVigenciaPagos();
             return;
         }
-        if (r.yaRegistrado) { toast(r.mensaje, 'verde'); _vpClave = _nuevaClave(); await _vpTrasConfirmar(); return; } // V15: el aviso queda visible (la ficha se vuelve a dibujar)
+        if (r.yaRegistrado) { toast(r.mensaje, 'verde'); _vpClave = _nuevaClave(); await _vpTrasConfirmar(); _vpAvisoFijoV28(accion, 'ℹ️ ' + r.mensaje); return; } // V15: el aviso queda visible (la ficha se vuelve a dibujar)
         _vpPrevia[accion] = { datos: d, firma: r.firma };
         box.innerHTML = '<div class="vp-aviso" style="background:#E3F2FD;border:1px solid #90CAF9;margin-top:8px;">' + _vpResumenPrevia(accion, r) +
             '<div class="ayuda" style="margin-top:4px;">Nada se guardó todavía.</div>' +
@@ -2374,6 +2391,7 @@ async function vpConfirmar(accion, btn) {
         toast(r.mensaje || '✅ Listo', 'verde');
         if (accion === 'confirmarPagoRecibido') { _vpClave = _nuevaClave(); _vpFraseMem = ''; } // la próxima operación es otra (V15: la frase no se arrastra)
         await _vpTrasConfirmar();
+        _vpAvisoFijoV28(accion, r.mensaje || '✅ Listo');   // V28: el aviso queda escrito (el cartelito se va solo)
     } catch (e) {
         // sin respuesta: puede haberse guardado o no. Con el pago, la misma clave evita duplicar.
         box.innerHTML = '<div class="ayuda" style="color:#E65100;">📡 Sin respuesta del servidor. ' +
@@ -2382,6 +2400,11 @@ async function vpConfirmar(accion, btn) {
     }
 }
 
+function _vpAvisoFijoV28(accion, texto) {
+    const b = document.getElementById('vpBox_' + accion); if (!b) return;
+    b.innerHTML = '<div class="rn-vence" style="font-weight:700;">' + _esc(texto) + '<br><span class="ayuda" style="font-weight:400;">Quedó registrado abajo, en Historial y Pagos registrados.</span></div>';
+    _verV28(b);
+}
 async function _vpTrasConfirmar() {
     await cargarClientes();
     await cargarVigenciaPagos();

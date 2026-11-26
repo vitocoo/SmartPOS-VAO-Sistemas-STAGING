@@ -1,0 +1,28 @@
+{
+  "_nota": "Versión publicada de cada página de VAO POS. La lee vao-version.js para avisar «Hay una versión nueva». Se actualiza en cada entrega, junto con la página.",
+  "actualizado": "2026-11-26",
+  "paginas": {
+    "pos": "43.51",
+    "admin": "28",
+    "index": "11",
+    "fiados": "8",
+    "reportes": "11",
+    "planes": "5.9",
+    "misdatos": "2.3",
+    "contrato": "3.2",
+    "terminos": "1",
+    "anular": "1",
+    "clientes": "1",
+    "compras": "1",
+    "cotizador": "1",
+    "deudas": "1",
+    "egresos": "1",
+    "finanzas": "1",
+    "inventario": "1",
+    "juego": "1",
+    "salidas": "1",
+    "sendwa": "1",
+    "stock": "1",
+    "voz": "1"
+  }
+}
