@@ -283,7 +283,7 @@
   <span class="version-tag" id="version-tag"></span>
 
 <script>
-  const APP_VERSION = 10;   // v10: «¿Todavía no tenés cuenta? Creala ahora · 7 días gratis →» (planes.html#empezar)
+  const APP_VERSION = 11;   // v10: «¿Todavía no tenés cuenta? Creala ahora · 7 días gratis →» (planes.html#empezar)
 
   document.getElementById('version-tag').textContent = 'v' + APP_VERSION;
 
@@ -319,5 +319,10 @@
   });
 </script>
 
+<!-- v045.9 · aviso de versión: «se actualizó» y «hay una versión nueva» (vao-version.js + versiones.json) -->
+<script>
+window.VAO_PAGINA = { id: 'index', nombre: 'VAO Sistemas', version: String(APP_VERSION) };
+</script>
+<script src="vao-version.js"></script>
 </body>
 </html>
